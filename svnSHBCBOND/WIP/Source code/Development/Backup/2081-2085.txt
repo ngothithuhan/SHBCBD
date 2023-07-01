@@ -1,0 +1,4534 @@
+-- Start of DDL Script for Package SHBCBD.TXPKS_#2080
+-- Generated 21-Dec-21 12:23:41 PM from SHBCBD@(DESCRIPTION =(ADDRESS_LIST =(ADDRESS = (PROTOCOL = TCP)(HOST = 192.168.1.188)(PORT = 1521)))(CONNECT_DATA =(SERVICE_NAME = db)))
+
+CREATE OR REPLACE 
+PACKAGE txpks_#2080
+/** ----------------------------------------------------------------------------------------------------
+ ** Module: TX
+ ** Description: 
+ ** and is copyrighted by FSS.
+ **
+ **    All rights reserved.  No part of this work may be reproduced, stored in a retrieval system,
+ **    adopted or transmitted in any form or by any means, electronic, mechanical, photographic,
+ **    graphic, optic recording or otherwise, translated in any language or computer language,
+ **    without the prior written permission of Financial Software Solutions. JSC.
+ **
+ **  MODIFICATION HISTORY
+ **  Person      Date           Comments
+ **  System      03/12/2021     Created
+ ** (c) 2008 by Financial Software Solutions. JSC.
+ ----------------------------------------------------------------------------------------------------*/
+IS
+
+FUNCTION fn_txProcess(p_xmlmsg in out varchar2,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER;
+FUNCTION fn_AutoTxProcess(p_txmsg in out tx.msg_rectype,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER;
+FUNCTION fn_BatchTxProcess(p_txmsg in out tx.msg_rectype,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER;
+FUNCTION fn_txrevert(p_txnum varchar2,p_txdate varchar2,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER;
+FUNCTION fn_txAppCheck(p_txmsg in out tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER;
+END;
+/
+
+
+CREATE OR REPLACE 
+PACKAGE BODY txpks_#2080
+IS
+   pkgctx   plog.log_ctx;
+   logrow   tlogdebug%ROWTYPE;
+
+PROCEDURE pr_txlog(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+IS
+l_custodycd varchar2(100);
+l_fullname varchar2(500);
+BEGIN
+plog.setbeginsection (pkgctx, 'pr_txlog');
+
+select c.custodycd , c.fullname into l_custodycd, l_fullname from cfmast c where c.idcode = p_txmsg.txfields('01').value and c.idtype = p_txmsg.txfields('02').value and c.cfstatus <> 'C';
+
+   INSERT INTO tllog(autoid, txnum, txdate, txtime, brid, tlid,offid, ovrrqs, chid, chkid, tltxcd, ibt, brid2, tlid2, ccyusage,off_line, deltd, brdate, busdate, txdesc, ipaddress,wsname, txstatus, msgsts, ovrsts, batchname, msgamt,msgacct, chktime, offtime, reftxnum,lvel,dstatus,last_lvel, last_dstatus,via,dbcode,cfcustodycd,cffullname,cmdobjname)
+       VALUES(
+       seq_tllog.NEXTVAL,
+       p_txmsg.txnum,
+       TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),
+       NVL(p_txmsg.txtime, to_char(sysdate,systemnums.C_TIME_FORMAT)),
+       p_txmsg.brid,
+       p_txmsg.tlid,
+       p_txmsg.offid,
+       p_txmsg.ovrrqd,
+       p_txmsg.chid,
+       p_txmsg.chkid,
+       p_txmsg.tltxcd,
+       p_txmsg.ibt,
+       p_txmsg.brid2,
+       p_txmsg.tlid2,
+       NULL ,
+       p_txmsg.off_line,
+       p_txmsg.deltd,
+       TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),
+       TO_DATE(p_txmsg.busdate, systemnums.C_DATE_FORMAT),
+       NVL('SHS tra ve ket qua mo tai khoan chung khoan',p_txmsg.txdesc),
+       p_txmsg.ipaddress,
+       p_txmsg.wsname,
+       p_txmsg.txstatus,
+       p_txmsg.msgsts,
+       p_txmsg.ovrsts,
+       p_txmsg.batchname,
+       null ,
+       p_txmsg.txfields('01').value ,
+       TO_CHAR(SYSDATE,systemnums.C_TIME_FORMAT), --decode(p_txmsg.chkid,NULL,TO_CHAR(SYSDATE,systemnums.C_TIME_FORMAT,p_txmsg.chkid)),
+       TO_CHAR(SYSDATE,systemnums.C_TIME_FORMAT), --decode(p_txmsg.offtime,NULL,TO_CHAR(SYSDATE,systemnums.C_TIME_FORMAT,p_txmsg.offtime)),
+       p_txmsg.reftxnum,p_txmsg.lvel,p_txmsg.dstatus,p_txmsg.last_lvel,p_txmsg.last_dstatus,p_txmsg.via,p_txmsg.dbcode,
+       l_custodycd ,
+       l_fullname ,
+       p_txmsg.cmdobjname);
+
+
+   --plog.debug(pkgctx, 'abt to insert into tllogfld');
+   INSERT INTO tllogfld(AUTOID, TXNUM, TXDATE, FLDCD, NVALUE, CVALUE, TXDESC)
+      VALUES( seq_tllogfld.NEXTVAL, p_txmsg.txnum, TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),'01',0,p_txmsg.txfields('01').value,'Idcode');
+   --plog.debug(pkgctx, 'abt to insert into tllogfld');
+   INSERT INTO tllogfld(AUTOID, TXNUM, TXDATE, FLDCD, NVALUE, CVALUE, TXDESC)
+      VALUES( seq_tllogfld.NEXTVAL, p_txmsg.txnum, TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),'02',0,p_txmsg.txfields('02').value,'Idtype');
+   --plog.debug(pkgctx, 'abt to insert into tllogfld');
+   INSERT INTO tllogfld(AUTOID, TXNUM, TXDATE, FLDCD, NVALUE, CVALUE, TXDESC)
+      VALUES( seq_tllogfld.NEXTVAL, p_txmsg.txnum, TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),'03',0,p_txmsg.txfields('03').value,'Approved');
+   --plog.debug(pkgctx, 'abt to insert into tllogfld');
+   INSERT INTO tllogfld(AUTOID, TXNUM, TXDATE, FLDCD, NVALUE, CVALUE, TXDESC)
+      VALUES( seq_tllogfld.NEXTVAL, p_txmsg.txnum, TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),'04',0,p_txmsg.txfields('04').value,'Reason');
+   --plog.debug(pkgctx, 'abt to insert into tllogfld');
+   INSERT INTO tllogfld(AUTOID, TXNUM, TXDATE, FLDCD, NVALUE, CVALUE, TXDESC)
+      VALUES( seq_tllogfld.NEXTVAL, p_txmsg.txnum, TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),'05',0,p_txmsg.txfields('05').value,'Secif');
+   --plog.debug(pkgctx, 'abt to insert into tllogfld');
+   INSERT INTO tllogfld(AUTOID, TXNUM, TXDATE, FLDCD, NVALUE, CVALUE, TXDESC)
+      VALUES( seq_tllogfld.NEXTVAL, p_txmsg.txnum, TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),'06',0,p_txmsg.txfields('06').value,'Seaccount');
+   --plog.debug(pkgctx, 'abt to insert into tllogfld');
+   INSERT INTO tllogfld(AUTOID, TXNUM, TXDATE, FLDCD, NVALUE, CVALUE, TXDESC)
+      VALUES( seq_tllogfld.NEXTVAL, p_txmsg.txnum, TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),'07',0,p_txmsg.txfields('07').value,'Ciaccount');
+   --plog.debug(pkgctx, 'abt to insert into tllogfld');
+   INSERT INTO tllogfld(AUTOID, TXNUM, TXDATE, FLDCD, NVALUE, CVALUE, TXDESC)
+      VALUES( seq_tllogfld.NEXTVAL, p_txmsg.txnum, TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),'08',0,p_txmsg.txfields('08').value,'Isprofessional');
+   --plog.debug(pkgctx, 'abt to insert into tllogfld');
+   INSERT INTO tllogfld(AUTOID, TXNUM, TXDATE, FLDCD, NVALUE, CVALUE, TXDESC)
+      VALUES( seq_tllogfld.NEXTVAL, p_txmsg.txnum, TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),'09',0,p_txmsg.txfields('09').value,'From date');
+   --plog.debug(pkgctx, 'abt to insert into tllogfld');
+   INSERT INTO tllogfld(AUTOID, TXNUM, TXDATE, FLDCD, NVALUE, CVALUE, TXDESC)
+      VALUES( seq_tllogfld.NEXTVAL, p_txmsg.txnum, TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),'10',0,p_txmsg.txfields('10').value,'To date');
+   --Log worklow
+   txpks_txlog.pr_log_workflow(p_txmsg);
+
+   plog.setendsection (pkgctx, 'pr_txlog');
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+       plog.setendsection (pkgctx, 'pr_txlog');
+      RAISE errnums.E_SYSTEM_ERROR;
+END pr_txlog;--
+
+
+PROCEDURE pr_PrintInfo(p_txmsg in out tx.msg_rectype,p_err_code in out varchar2)
+IS
+   l_codeid varchar2(6);
+   l_acctno varchar2(30);
+   l_count NUMBER(10):= 0;
+BEGIN
+   plog.setbeginsection (pkgctx, 'pr_PrintInfo');
+
+    plog.setendsection (pkgctx, 'pr_PrintInfo');
+END pr_PrintInfo;
+
+FUNCTION fn_txAppAutoCheck(p_txmsg in out tx.msg_rectype,p_err_code in out varchar2)
+RETURN  NUMBER IS
+   l_allow         boolean;
+
+BEGIN
+plog.setbeginsection (pkgctx, 'fn_txAppAutoCheck');
+   plog.setendsection (pkgctx, 'fn_txAppAutoCheck');
+   RETURN systemnums.C_SUCCESS;
+EXCEPTION
+  WHEN others THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+       plog.setendsection (pkgctx, 'fn_txAppAutoCheck');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txAppAutoCheck;
+
+FUNCTION fn_txAppAutoUpdate(p_txmsg in tx.msg_rectype,p_err_code in out varchar2)
+RETURN  NUMBER
+IS
+l_txdesc VARCHAR2(1000);
+BEGIN
+
+
+   IF p_txmsg.deltd = 'Y' THEN -- Reversal transaction
+UPDATE TLLOG
+ SET DELTD = 'Y'
+      WHERE TXNUM = p_txmsg.txnum AND TXDATE = TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT);
+   END IF;
+   plog.setendsection (pkgctx, 'fn_txAppAutoUpdate');
+   RETURN systemnums.C_SUCCESS ;
+EXCEPTION
+  WHEN others THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+       plog.setendsection (pkgctx, 'fn_txAppAutoUpdate');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txAppAutoUpdate;
+
+
+FUNCTION fn_txAppUpdate(p_txmsg in tx.msg_rectype,p_err_code in out varchar2)
+RETURN NUMBER
+IS
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_txAppUpdate');
+-- Run Pre Update
+   IF txpks_#2080EX.fn_txPreAppUpdate(p_txmsg,p_err_code) <> systemnums.C_SUCCESS THEN
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+-- Run Auto Update
+   IF fn_txAppAutoUpdate(p_txmsg,p_err_code) <> systemnums.C_SUCCESS THEN
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+-- Run After Update
+   IF txpks_#2080EX.fn_txAftAppUpdate(p_txmsg,p_err_code) <> systemnums.C_SUCCESS THEN
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+   plog.setendsection (pkgctx, 'fn_txAppUpdate');
+   RETURN systemnums.C_SUCCESS;
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_txAppUpdate');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txAppUpdate;
+
+FUNCTION fn_txAppCheck(p_txmsg in out tx.msg_rectype, p_err_code out varchar2)
+RETURN NUMBER
+IS
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_txAppCheck');
+-- Run Pre check
+   IF txpks_#2080EX.fn_txPreAppCheck(p_txmsg,p_err_code) <> systemnums.C_SUCCESS THEN
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+-- Run Auto check
+   IF fn_txAppAutoCheck(p_txmsg,p_err_code) <> systemnums.C_SUCCESS THEN
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+-- Run After check
+   IF txpks_#2080EX.fn_txAftAppCheck(p_txmsg,p_err_code) <> systemnums.C_SUCCESS THEN
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+   plog.setendsection (pkgctx, 'fn_txAppCheck');
+   RETURN SYSTEMNUMS.C_SUCCESS;
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_txAppCheck');
+      RETURN errnums.C_SYSTEM_ERROR;
+END fn_txAppCheck;
+
+FUNCTION fn_txProcess(p_xmlmsg in out varchar2,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER
+IS
+   l_return_code VARCHAR2(30) := systemnums.C_SUCCESS;
+   l_txmsg tx.msg_rectype;
+   l_count NUMBER(3);
+   l_approve BOOLEAN := FALSE;
+   l_status VARCHAR2(1);
+   v_curr_lvel number(10);
+   l_last char(1);
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_txProcess');
+   SELECT count(*) INTO l_count
+   FROM SYSVAR
+   WHERE GRNAME='SYSTEM'
+   AND VARNAME='HOSTATUS'
+   AND VARVALUE= systemnums.C_OPERATION_ACTIVE;
+   IF l_count = 0 THEN
+       p_err_code := errnums.C_HOST_OPERATION_ISINACTIVE;
+       plog.setendsection (pkgctx, 'fn_txProcess');
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+   --plog.debug(pkgctx, 'xml2obj');
+   l_txmsg := txpks_msg.fn_xml2obj(p_xmlmsg);
+/*   l_count := 0; -- reset counter
+   SELECT count(*) INTO l_count
+   FROM SYSVAR
+   WHERE GRNAME='SYSTEM'
+   AND VARNAME='CURRDATE'
+   AND TO_DATE(VARVALUE,systemnums.C_DATE_FORMAT)= l_txmsg.txdate;
+   IF l_count = 0 THEN
+       plog.setendsection (pkgctx, 'fn_txProcess');
+       RETURN errnums.C_BRANCHDATE_INVALID;
+   END IF; */
+   --plog.debug(pkgctx, 'l_txmsg.txaction: ' || l_txmsg.txaction);
+   l_status:= l_txmsg.txstatus;
+   --BEGIN GHI NHAN DE TRANH DOUBLE HACH TOAN GIAO DICH
+   pr_lockaccount(l_txmsg,p_err_code);
+   if p_err_code <> 0 then
+       pr_unlockaccount(l_txmsg);
+       plog.setendsection (pkgctx, 'fn_txProcess');
+       RETURN errnums.C_SYSTEM_ERROR;
+   end if;
+   -- END GHI NHAN DE TRANH DOUBLE HACH TOAN GIAO DICH
+   l_last:='N';
+   --Xu ly workflow cho giao dich
+   if l_txmsg.updatemode <>'C' then       --Lan duyet sau
+       select (case when lvel= 0 then 1 else lvel end) into v_curr_lvel from tllog where txnum=l_txmsg.txnum and txdate=to_date(l_txmsg.txdate, systemnums.c_date_format);
+       for rec in (
+           select lvel,dstatus,aprlvel,refuselvel,last from tltxwf where tltxcd =l_txmsg.tltxcd and lvel =v_curr_lvel
+       ) loop
+           if l_txmsg.updatemode ='A' then
+               l_txmsg.last_lvel:= rec.lvel;
+               l_txmsg.last_dstatus:= rec.dstatus;
+               l_txmsg.lvel:= rec.aprlvel;
+               l_last:=rec.last;
+               select dstatus into l_txmsg.dstatus from tltxwf where tltxcd =l_txmsg.tltxcd and lvel = rec.aprlvel;
+           else
+               l_txmsg.last_lvel:= rec.lvel;
+               l_txmsg.last_dstatus:= rec.dstatus;
+               l_txmsg.lvel:= rec.refuselvel;
+               l_last:=rec.last;
+               select dstatus into l_txmsg.dstatus from tltxwf where tltxcd =l_txmsg.tltxcd and lvel = rec.refuselvel;
+           end if;
+        end loop;
+   Else --Updatemode ='C'       --Lan tao dau tien
+       for rec in (
+           select lvel,dstatus,aprlvel,refuselvel,last from tltxwf where tltxcd =l_txmsg.tltxcd and lvel =1
+       ) loop
+           l_txmsg.last_lvel:= rec.lvel;
+           l_txmsg.last_dstatus:= rec.dstatus;
+           l_txmsg.lvel:= rec.aprlvel;
+           l_last:=rec.last;
+           select dstatus into l_txmsg.dstatus from tltxwf where tltxcd =l_txmsg.tltxcd and lvel = rec.aprlvel;
+       end loop;
+    End If;
+    --Kiem tra quyen thuc hien giao dich
+    IF txpks_check.fn_txchecktransallow(l_txmsg) <> systemnums.C_SUCCESS THEN
+       p_err_code := errnums.E_TRANS_NOT_ALLOW;
+       RAISE errnums.E_BIZ_RULE_INVALID;
+    END IF;
+    IF l_txmsg.deltd <> txnums.C_DELTD_TXDELETED THEN
+       if l_txmsg.updatemode ='Z' then --Huy giao dich
+           if l_txmsg.txstatus = txstatusnums.c_txcompleted then
+               --Thong bao khong cho phep huy giao dich da hoan tat
+               p_err_code := errnums.C_SA_TRANS_APPROVED;
+               plog.setendsection (pkgctx, 'fn_txProcess');
+               RETURN errnums.C_BIZ_RULE_INVALID;
+           else
+               if l_txmsg.lvel<=1 then --Neu chuyen ve buoc Maker thi huy bo luon giao dich
+                   l_txmsg.txstatus := txstatusnums.c_txrefuse;
+                   IF fn_txAppUpdate(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                       RAISE errnums.E_BIZ_RULE_INVALID;
+                   END IF;
+                   txpks_txlog.pr_update_status(l_txmsg);
+               else
+                   l_txmsg.txstatus := txstatusnums.c_txpending;
+                   IF fn_txAppUpdate(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                       RAISE errnums.E_BIZ_RULE_INVALID;
+                   END IF;
+                   l_txmsg.ovrrqd:=errnums.C_CHECKER_CONTROL; --Ghi nhan buoc tiep theo van can duyet
+                   txpks_txlog.pr_update_status(l_txmsg);
+               end if;
+           end if;
+       end if;
+       if l_txmsg.updatemode ='R' then --Tu choi giao dich
+           if l_txmsg.txstatus = txstatusnums.c_txcompleted then
+               --Thong bao khong cho phep huy giao dich da hoan tat
+               p_err_code := errnums.C_SA_TRANS_APPROVED;
+               plog.setendsection (pkgctx, 'fn_txProcess');
+               RETURN errnums.C_BIZ_RULE_INVALID;
+           else
+               if l_txmsg.lvel<=1 then --Neu chuyen ve buoc Maker thi huy bo luon giao dich
+                   l_txmsg.txstatus := txstatusnums.c_txrejected;
+                   IF fn_txAppUpdate(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                       RAISE errnums.E_BIZ_RULE_INVALID;
+                   END IF;
+                   txpks_txlog.pr_update_status(l_txmsg);
+               else
+                   l_txmsg.txstatus := txstatusnums.c_txpending;
+                   IF fn_txAppUpdate(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                       RAISE errnums.E_BIZ_RULE_INVALID;
+                   END IF;
+                   l_txmsg.ovrrqd:=errnums.C_CHECKER_CONTROL; --Ghi nhan buoc tiep theo van can duyet
+                   txpks_txlog.pr_update_status(l_txmsg);
+               end if;
+           end if;
+       end if;
+       if  l_txmsg.updatemode ='C' or l_txmsg.updatemode ='A' then --Tao moi hoac duyet
+           IF l_txmsg.pretran = 'Y' THEN --Giao dich xac submit lan dau se check ko hach toan
+               IF fn_txAppCheck(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                   RAISE errnums.E_BIZ_RULE_INVALID;
+               END IF;
+               pr_PrintInfo(l_txmsg, p_err_code);
+           ELSE --pretran='N'
+               IF fn_txAppCheck(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                   RAISE errnums.E_BIZ_RULE_INVALID;
+               END IF;
+
+               if l_last='Y' then --Hach toan
+                   l_txmsg.txstatus := txstatusnums.c_txcompleted;
+               else
+                   l_txmsg.txstatus := txstatusnums.c_txpending;
+                   l_txmsg.ovrrqd:=errnums.C_CHECKER_CONTROL; --Ghi nhan buoc tiep theo van can duyet
+               end if;
+               IF fn_txAppUpdate(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                   RAISE errnums.E_BIZ_RULE_INVALID;
+               END IF;
+               If l_txmsg.updatemode <> 'C'  Then
+                   txpks_txlog.pr_update_status(l_txmsg);
+               Else
+                   pr_txlog(l_txmsg, p_err_code);
+               End If;
+           END IF; --<<END OF PROCESS PRETRAN>>
+       end if;
+   ELSE -- DELETING TX
+   -- <<BEGIN OF DELETING A TRANSACTION>>
+   -- This kind of tx has not yet updated mast table in the host
+   -- Only need update tllog status
+      IF fn_txAppUpdate(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+          RAISE errnums.E_BIZ_RULE_INVALID;
+      END IF;
+   -- <<END OF DELETING A TRANSACTION>>
+   END IF;
+   --plog.debug(pkgctx, 'obj2xml');
+   p_xmlmsg := txpks_msg.fn_obj2xml(l_txmsg);
+   plog.setendsection (pkgctx, 'fn_txProcess');
+   pr_unlockaccount(l_txmsg);
+   RETURN l_return_code;
+EXCEPTION
+WHEN errnums.E_BIZ_RULE_INVALID
+   THEN
+      FOR I IN (
+           SELECT ERRDESC,EN_ERRDESC FROM deferror
+           WHERE ERRNUM= p_err_code
+      ) LOOP
+           p_err_param := i.errdesc;
+      END LOOP;      l_txmsg.txException('ERRSOURCE').value := '';
+      l_txmsg.txException('ERRSOURCE').TYPE := 'System.String';
+      l_txmsg.txException('ERRCODE').value := p_err_code;
+      l_txmsg.txException('ERRCODE').TYPE := 'System.Int64';
+      l_txmsg.txException('ERRMSG').value := p_err_param;
+      l_txmsg.txException('ERRMSG').TYPE := 'System.String';
+      p_xmlmsg := txpks_msg.fn_obj2xml(l_txmsg);
+      plog.setendsection (pkgctx, 'fn_txProcess');
+      pr_unlockaccount(l_txmsg);
+      RETURN errnums.C_BIZ_RULE_INVALID;
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      p_err_param := 'SYSTEM_ERROR';
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      l_txmsg.txException('ERRSOURCE').value := '';
+      l_txmsg.txException('ERRSOURCE').TYPE := 'System.String';
+      l_txmsg.txException('ERRCODE').value := p_err_code;
+      l_txmsg.txException('ERRCODE').TYPE := 'System.Int64';
+      l_txmsg.txException('ERRMSG').value :=  p_err_param;
+      l_txmsg.txException('ERRMSG').TYPE := 'System.String';
+      p_xmlmsg := txpks_msg.fn_obj2xml(l_txmsg);
+      plog.setendsection (pkgctx, 'fn_txProcess');
+      pr_unlockaccount(l_txmsg);
+      RETURN errnums.C_SYSTEM_ERROR;
+END fn_txProcess;
+
+FUNCTION fn_AutoTxProcess(p_txmsg in out tx.msg_rectype,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER
+IS
+   l_return_code VARCHAR2(30) := systemnums.C_SUCCESS;
+
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_AutoTxProcess');
+   --BEGIN GHI NHAN DE TRANH DOUBLE HACH TOAN GIAO DICH
+   pr_lockaccount(p_txmsg,p_err_code);
+   if p_err_code <> 0 then
+       pr_unlockaccount(p_txmsg);
+       plog.setendsection (pkgctx, 'fn_txProcess');
+       RETURN errnums.C_SYSTEM_ERROR;
+   end if;   -- END GHI NHAN DE TRANH DOUBLE HACH TOAN GIAO DICH
+   IF fn_txAppCheck(p_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+        RAISE errnums.E_BIZ_RULE_INVALID;
+   END IF;
+   IF fn_txAppUpdate(p_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+        RAISE errnums.E_BIZ_RULE_INVALID;
+   END IF;
+   IF p_txmsg.deltd <> 'Y' THEN -- Normal transaction
+       pr_txlog(p_txmsg, p_err_code);
+   ELSE    -- Delete transaction
+       txpks_txlog.pr_txdellog(p_txmsg,p_err_code);
+   END IF;
+   plog.setendsection (pkgctx, 'fn_AutoTxProcess');
+   pr_unlockaccount(p_txmsg);
+   RETURN l_return_code;
+EXCEPTION
+   WHEN errnums.E_BIZ_RULE_INVALID
+   THEN
+      FOR I IN (
+           SELECT ERRDESC,EN_ERRDESC FROM deferror
+           WHERE ERRNUM= p_err_code
+      ) LOOP
+           p_err_param := i.errdesc;
+      END LOOP;
+      plog.setendsection (pkgctx, 'fn_AutoTxProcess');
+      pr_unlockaccount(p_txmsg);
+      RETURN errnums.C_BIZ_RULE_INVALID;
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      p_err_param := 'SYSTEM_ERROR';
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_AutoTxProcess');
+      pr_unlockaccount(p_txmsg);
+      RETURN errnums.C_SYSTEM_ERROR;
+END fn_AutoTxProcess;
+
+FUNCTION fn_BatchTxProcess(p_txmsg in out tx.msg_rectype,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER
+IS
+   l_return_code VARCHAR2(30) := systemnums.C_SUCCESS;
+
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_BatchTxProcess');
+   IF fn_txAppCheck(p_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+        RAISE errnums.E_BIZ_RULE_INVALID;
+   END IF;
+   IF fn_txAppUpdate(p_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+        RAISE errnums.E_BIZ_RULE_INVALID;
+   END IF;
+  /* IF fn_txAutoPostmap(p_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+        RAISE errnums.E_BIZ_RULE_INVALID;
+   END IF; */
+   IF p_txmsg.deltd <> 'Y' THEN -- Normal transaction
+       pr_txlog(p_txmsg, p_err_code);
+   ELSE    -- Delete transaction
+       txpks_txlog.pr_txdellog(p_txmsg,p_err_code);
+   END IF;
+
+   plog.setendsection (pkgctx, 'fn_BatchTxProcess');
+   RETURN l_return_code;
+EXCEPTION
+   WHEN errnums.E_BIZ_RULE_INVALID
+   THEN
+      FOR I IN (
+           SELECT ERRDESC,EN_ERRDESC FROM deferror
+           WHERE ERRNUM= p_err_code
+      ) LOOP
+           p_err_param := i.errdesc;
+      END LOOP;
+      plog.setendsection (pkgctx, 'fn_BatchTxProcess');
+      RETURN errnums.C_BIZ_RULE_INVALID;
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      p_err_param := 'SYSTEM_ERROR';
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_BatchTxProcess');
+      RETURN errnums.C_SYSTEM_ERROR;
+END fn_BatchTxProcess;
+
+FUNCTION fn_txrevert(p_txnum varchar2 ,p_txdate varchar2,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER
+IS
+   l_txmsg               tx.msg_rectype;
+   l_err_param           varchar2(300);
+   l_tllog               tx.tllog_rectype;
+   l_fldname             varchar2(100);
+   l_defname             varchar2(100);
+   l_fldtype             char(1);
+   l_return              number(20,0);
+   pv_refcursor            pkg_report.ref_cursor;
+   l_return_code VARCHAR2(30) := systemnums.C_SUCCESS;
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_txrevert');
+   OPEN pv_refcursor FOR
+   select * from tllog
+   where txnum=p_txnum and txdate=to_date(p_txdate,systemnums.c_date_format);
+   LOOP
+       FETCH pv_refcursor
+       INTO l_tllog;
+       EXIT WHEN pv_refcursor%NOTFOUND;
+       if l_tllog.deltd='Y' then
+           p_err_code:=errnums.C_SA_CANNOT_DELETETRANSACTION;
+           plog.setendsection (pkgctx, 'fn_txrevert');
+           RETURN errnums.C_SYSTEM_ERROR;
+       end if;
+       l_txmsg.msgtype:='T';
+       l_txmsg.local:='N';
+       l_txmsg.tlid        := l_tllog.tlid;
+       l_txmsg.off_line    := l_tllog.off_line;
+       l_txmsg.deltd       := txnums.C_DELTD_TXDELETED;
+       l_txmsg.txstatus    := txstatusnums.c_txcompleted;
+       l_txmsg.msgsts      := '0';
+       l_txmsg.ovrsts      := '0';
+       l_txmsg.batchname   := 'DEL';
+       l_txmsg.txdate:=to_date(l_tllog.txdate,systemnums.c_date_format);
+       l_txmsg.busdate:=to_date(l_tllog.busdate,systemnums.c_date_format);
+       l_txmsg.txnum:=l_tllog.txnum;
+       l_txmsg.tltxcd:=l_tllog.tltxcd;
+       l_txmsg.brid:=l_tllog.brid;
+       for rec in
+       (
+           select * from tllogfld
+           where txnum=p_txnum and txdate=to_date(p_txdate,systemnums.c_date_format)
+       )
+       loop
+       begin
+           select fldname, defname, fldtype
+           into l_fldname, l_defname, l_fldtype
+           from fldmaster
+           where objname=l_tllog.tltxcd and FLDNAME=rec.FLDCD;
+
+           l_txmsg.txfields (l_fldname).defname   := l_defname;
+           l_txmsg.txfields (l_fldname).TYPE      := l_fldtype;
+
+           if l_fldtype='C' then
+               l_txmsg.txfields (l_fldname).VALUE     := rec.CVALUE;
+           elsif   l_fldtype='N' then
+               l_txmsg.txfields (l_fldname).VALUE     := rec.NVALUE;
+           else
+               l_txmsg.txfields (l_fldname).VALUE     := rec.CVALUE;
+           end if;
+           --plog.debug (pkgctx,'field: ' || l_fldname || ' value:' || to_char(l_txmsg.txfields (l_fldname).VALUE));
+       exception when others then
+           l_err_param:=0;
+       end;
+       end loop;
+       IF txpks_#2080.fn_AutoTxProcess (l_txmsg,
+                                        p_err_code,
+                                        p_err_param
+          ) <> systemnums.c_success
+       THEN
+           plog.debug (pkgctx,
+           'got error 2080: ' || p_err_code
+           );
+           ROLLBACK;
+           plog.setendsection (pkgctx, 'fn_txrevert');
+           RETURN errnums.C_SYSTEM_ERROR;
+       END IF;
+       p_err_code:=0;
+       plog.setendsection (pkgctx, 'fn_txrevert');
+       return 0;
+       plog.setendsection (pkgctx, 'fn_txrevert');
+       p_err_code:=errnums.C_HOST_VOUCHER_NOT_FOUND;
+       RETURN errnums.C_SYSTEM_ERROR;
+   END LOOP;
+   p_err_code:=errnums.C_HOST_VOUCHER_NOT_FOUND;
+   plog.setendsection (pkgctx, 'fn_txrevert');
+   RETURN errnums.C_SYSTEM_ERROR;
+   plog.setendsection (pkgctx, 'fn_txrevert');
+   RETURN l_return_code;
+EXCEPTION
+   WHEN errnums.E_BIZ_RULE_INVALID
+   THEN
+      FOR I IN (
+           SELECT ERRDESC,EN_ERRDESC FROM deferror
+           WHERE ERRNUM= p_err_code
+      ) LOOP
+           p_err_param := i.errdesc;
+      END LOOP;
+      plog.setendsection (pkgctx, 'fn_txrevert');
+      RETURN errnums.C_BIZ_RULE_INVALID;
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      p_err_param := 'SYSTEM_ERROR';
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_txrevert');
+      RETURN errnums.C_SYSTEM_ERROR;
+END fn_txrevert;
+
+BEGIN
+      FOR i IN (SELECT *
+                FROM tlogdebug)
+      LOOP
+         logrow.loglevel    := i.loglevel;
+         logrow.log4table   := i.log4table;
+         logrow.log4alert   := i.log4alert;
+         logrow.log4trace   := i.log4trace;
+      END LOOP;
+      pkgctx    :=
+         plog.init ('txpks_#2080',
+                    plevel => NVL(logrow.loglevel,30),
+                    plogtable => (NVL(logrow.log4table,'N') = 'Y'),
+                    palert => (NVL(logrow.log4alert,'N') = 'Y'),
+                    ptrace => (NVL(logrow.log4trace,'N') = 'Y')
+            );
+END txpks_#2080;
+/
+
+
+-- End of DDL Script for Package SHBCBD.TXPKS_#2080
+
+-- Start of DDL Script for Package SHBCBD.TXPKS_#2080EX
+-- Generated 21-Dec-21 12:23:42 PM from SHBCBD@(DESCRIPTION =(ADDRESS_LIST =(ADDRESS = (PROTOCOL = TCP)(HOST = 192.168.1.188)(PORT = 1521)))(CONNECT_DATA =(SERVICE_NAME = db)))
+
+CREATE OR REPLACE 
+PACKAGE txpks_#2080ex
+/**----------------------------------------------------------------------------------------------------
+ ** Package: TXPKS_#2080EX
+ ** and is copyrighted by FSS.
+ **
+ **    All rights reserved.  No part of this work may be reproduced, stored in a retrieval system,
+ **    adopted or transmitted in any form or by any means, electronic, mechanical, photographic,
+ **    graphic, optic recording or otherwise, translated in any language or computer language,
+ **    without the prior written permission of Financial Software Solutions. JSC.
+ **
+ **  MODIFICATION HISTORY
+ **  Person      Date           Comments
+ **  System      03/12/2021     Created
+ **  
+ ** (c) 2008 by Financial Software Solutions. JSC.
+ ** ----------------------------------------------------------------------------------------------------*/
+IS
+FUNCTION fn_txPreAppCheck(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER;
+FUNCTION fn_txAftAppCheck(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER;
+FUNCTION fn_txPreAppUpdate(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER;
+FUNCTION fn_txAftAppUpdate(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER;
+END;
+/
+
+
+CREATE OR REPLACE 
+PACKAGE BODY txpks_#2080ex
+IS
+   pkgctx   plog.log_ctx;
+   logrow   tlogdebug%ROWTYPE;
+
+   c_idcode           CONSTANT CHAR(2) := '01';
+   c_idtype           CONSTANT CHAR(2) := '02';
+   c_approved         CONSTANT CHAR(2) := '03';
+   c_reason           CONSTANT CHAR(2) := '04';
+   c_secif            CONSTANT CHAR(2) := '05';
+   c_seaccount        CONSTANT CHAR(2) := '06';
+   c_ciaccount        CONSTANT CHAR(2) := '07';
+   c_isprofessional   CONSTANT CHAR(2) := '08';
+   c_fromdate         CONSTANT CHAR(2) := '09';
+   c_todate           CONSTANT CHAR(2) := '10';
+FUNCTION fn_txPreAppCheck(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER
+IS
+l_idcode varchar2(100);
+l_idtype  varchar2(20);
+l_approved varchar2(2);
+l_reason varchar2(500);
+l_secif varchar2(100);
+l_seaccount varchar2(100);
+l_ciaccount varchar2(100);
+l_isprofessional varchar2(10);
+l_fromdate varchar2(100);
+l_todate varchar2(100);
+l_count number;
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_txPreAppCheck');
+   --plog.debug(pkgctx,'BEGIN OF fn_txPreAppCheck');
+   /***************************************************************************************************
+    * PUT YOUR SPECIFIC RULE HERE, FOR EXAMPLE:
+    * IF NOT <<YOUR BIZ CONDITION>> THEN
+    *    p_err_code := '<<ERRNUM>>'; -- Pre-defined in DEFERROR table
+    *    plog.setendsection (pkgctx, 'fn_txPreAppCheck');
+    *    RETURN errnums.C_BIZ_RULE_INVALID;
+    * END IF;
+    ***************************************************************************************************/
+    l_idcode:= p_txmsg.txfields(c_idcode).value;
+    l_idtype:= p_txmsg.txfields(c_idtype).value;
+    l_approved:= p_txmsg.txfields(c_approved).value;
+    l_reason:= p_txmsg.txfields(c_reason).value;
+    l_isprofessional:= p_txmsg.txfields(c_isprofessional).value;
+    l_secif:= p_txmsg.txfields(c_secif).value;
+    l_seaccount:= p_txmsg.txfields(c_seaccount).value;
+    l_ciaccount:= p_txmsg.txfields(c_ciaccount).value;
+    l_fromdate:= p_txmsg.txfields(c_fromdate).value;
+    l_todate:= p_txmsg.txfields(c_todate).value;
+
+
+    -- check du lieu dau vao
+
+    if l_idcode is null then
+        p_err_code:='-4000453';
+        return p_err_code;
+    end if;
+
+    if l_idtype is null then
+        p_err_code:='-4000454';
+        return p_err_code;
+    end if;
+
+    if l_idtype not in ('001','002','005') then
+        p_err_code:='-4000465';
+        return p_err_code;
+    end if;
+
+    if l_approved is null then
+        p_err_code:='-4000462';
+        return p_err_code;
+    end if;
+
+     if l_approved not in ('Y','N') then
+        p_err_code:='-4000463';
+        return p_err_code;
+    end if;
+
+    if fn_is_date_correct_format(l_fromdate)= -1 then
+           p_err_code:='-4000466';
+            return p_err_code;
+    end if;
+
+    if fn_is_date_correct_format(l_todate)= -1 then
+           p_err_code:='-4000467';
+            return p_err_code;
+    end if;
+
+    if l_approved = 'Y' then
+         if l_secif is null then
+            p_err_code:='-4000455';
+            return p_err_code;
+        end if;
+
+        if l_seaccount is null then
+            p_err_code:='-4000456';
+            return p_err_code;
+        end if;
+
+        if l_ciaccount is null then
+            p_err_code:='-4000457';
+            return p_err_code;
+        end if;
+
+
+          if l_isprofessional is null then
+            p_err_code:='-4000458';
+            return p_err_code;
+        end if;
+
+        if l_isprofessional not in ('Y','N') then
+            p_err_code:='-4000461';
+            return p_err_code;
+        end if;
+
+          if l_isprofessional = 'Y' then
+             if l_fromdate is null then
+                p_err_code:='-4000459';
+                return p_err_code;
+            end if;
+
+            if l_todate is null then
+                p_err_code:='-4000460';
+                return p_err_code;
+            end if;
+
+            if to_date(l_fromdate,'dd/mm/yyyy') > getcurrdate then
+                p_err_code:='-4001383';
+                return p_err_code;
+            end if;
+
+            if to_date(l_todate,'dd/mm/yyyy') <= to_date(l_fromdate,'dd/mm/yyyy') then
+                p_err_code:='-4000479';
+                return p_err_code;
+            end if;
+
+             if to_date(l_todate,'dd/mm/yyyy') <= getcurrdate then
+                p_err_code:='-4001384';
+                return p_err_code;
+            end if;
+
+
+        end if;
+         select count(*) into l_count from cfmast c where  c.cfstatus <> 'C' and c.secif = l_secif;
+            if l_count > 0 then
+                p_err_code:='-4000481';
+                return p_err_code;
+            end if;
+        select count(*) into l_count from cfmast c where  c.cfstatus <> 'C' and c.seaccount = l_seaccount;
+            if l_count > 0 then
+                p_err_code:='-4000482';
+                return p_err_code;
+            end if;
+    end if;
+
+    select count(*) into l_count from cfmast c where c.idcode = l_idcode and c.idtype = l_idtype ;
+    if l_count = 0 then
+        p_err_code:='-4000464';
+        return p_err_code;
+    end if;
+
+    -- Kiem tra trang thai tai khoan khong hop le
+    select count(*) into l_count from cfmast c where c.idcode = l_idcode and c.idtype = l_idtype and c.cfstatus not in( 'N','C');
+    if l_count = 0 then
+        p_err_code:='-4000483';
+        return p_err_code;
+    end if;
+
+     select count(*) into l_count from cfmast c where c.idcode = l_idcode and c.idtype = l_idtype and c.cfstatus <> 'C' and c.secif is not null;
+    if l_count > 0 then
+        p_err_code:='-4000480';
+        return p_err_code;
+    end if;
+
+    select count(*) into l_count from cfmast c where  c.cfstatus <> 'C' and c.secif = l_secif;
+    if l_count > 0 then
+        p_err_code:='-4000481';
+        return p_err_code;
+    end if;
+     select count(*) into l_count from cfmast c where  c.cfstatus <> 'C' and c.seaccount = l_seaccount;
+    if l_count > 0 then
+        p_err_code:='-4000482';
+        return p_err_code;
+    end if;
+    --plog.debug (pkgctx, '<<END OF fn_txPreAppCheck');
+    plog.setendsection (pkgctx, 'fn_txPreAppCheck');
+    RETURN systemnums.C_SUCCESS;
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_txPreAppCheck');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txPreAppCheck;
+
+FUNCTION fn_txAftAppCheck(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER
+IS
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_txAftAppCheck');
+   --plog.debug (pkgctx, '<<BEGIN OF fn_txAftAppCheck>>');
+   /***************************************************************************************************
+    * PUT YOUR SPECIFIC RULE HERE, FOR EXAMPLE:
+    * IF NOT <<YOUR BIZ CONDITION>> THEN
+    *    p_err_code := '<<ERRNUM>>'; -- Pre-defined in DEFERROR table
+    *    plog.setendsection (pkgctx, 'fn_txAftAppCheck');
+    *    RETURN errnums.C_BIZ_RULE_INVALID;
+    * END IF;
+    ***************************************************************************************************/
+   --plog.debug (pkgctx, '<<END OF fn_txAftAppCheck>>');
+   plog.setendsection (pkgctx, 'fn_txAftAppCheck');
+   RETURN systemnums.C_SUCCESS;
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_txAftAppCheck');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txAftAppCheck;
+
+FUNCTION fn_txPreAppUpdate(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER
+IS
+BEGIN
+    plog.setbeginsection (pkgctx, 'fn_txPreAppUpdate');
+    --plog.debug (pkgctx, '<<BEGIN OF fn_txPreAppUpdate');
+   /***************************************************************************************************
+    ** PUT YOUR SPECIFIC PROCESS HERE. . DO NOT COMMIT/ROLLBACK HERE, THE SYSTEM WILL DO IT
+    ***************************************************************************************************/
+
+    if p_txmsg.txfields(c_approved).value = 'Y' then
+        UPDATE reqlog
+           SET status = 'S'
+         WHERE status ='P'
+         and tltxcd ='2023'
+         and custodycd = (select custodycd from cfmast c where c.idcode = p_txmsg.txfields(c_idcode).value
+                             and c.idtype = p_txmsg.txfields(c_idtype).value and c.cfstatus <>'C' );
+        update cfmast c set
+                            c.shs_approve ='Y',
+                            c.shs_reason = p_txmsg.txfields(c_reason).value,
+                            c.secif = p_txmsg.txfields(c_secif).value,
+                            c.seaccount = p_txmsg.txfields(c_seaccount).value,
+                            c.ciaccount = p_txmsg.txfields(c_ciaccount).value,
+                            c.isprofession = p_txmsg.txfields(c_isprofessional).value,
+                            c.professionfrdate = case when p_txmsg.txfields(c_isprofessional).value ='Y' then
+                             p_txmsg.txfields(c_fromdate).value else null end,
+                            c.professiontodate = case when p_txmsg.txfields(c_isprofessional).value ='Y' then
+                            p_txmsg.txfields(c_todate).value  else null end,
+                            c.idcodeck = p_txmsg.txfields(c_idcode).value,
+                            c.idtypeck = p_txmsg.txfields(c_idtype).value,
+                            c.isexists ='Y'
+
+                             where c.idcode = p_txmsg.txfields(c_idcode).value
+                             and c.idtype = p_txmsg.txfields(c_idtype).value;
+     else
+         update cfmast c set c.shs_approve ='N',
+                             c.shs_reason = p_txmsg.txfields(c_reason).value
+                            where c.idcode = p_txmsg.txfields(c_idcode).value
+                             and c.idtype = p_txmsg.txfields(c_idtype).value;
+
+     end if;
+    --plog.debug (pkgctx, '<<END OF fn_txPreAppUpdate');
+    plog.setendsection (pkgctx, 'fn_txPreAppUpdate');
+    RETURN systemnums.C_SUCCESS;
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+       plog.setendsection (pkgctx, 'fn_txPreAppUpdate');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txPreAppUpdate;
+
+FUNCTION fn_txAftAppUpdate(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER
+IS
+BEGIN
+    plog.setbeginsection (pkgctx, 'fn_txAftAppUpdate');
+    --plog.debug (pkgctx, '<<BEGIN OF fn_txAftAppUpdate');
+   /***************************************************************************************************
+    ** PUT YOUR SPECIFIC AFTER PROCESS HERE. DO NOT COMMIT/ROLLBACK HERE, THE SYSTEM WILL DO IT
+    ***************************************************************************************************/
+    --plog.debug (pkgctx, '<<END OF fn_txAftAppUpdate');
+    plog.setendsection (pkgctx, 'fn_txAftAppUpdate');
+    RETURN systemnums.C_SUCCESS;
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+       plog.setendsection (pkgctx, 'fn_txAftAppUpdate');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txAftAppUpdate;
+
+BEGIN
+      FOR i IN (SELECT *
+                FROM tlogdebug)
+      LOOP
+         logrow.loglevel    := i.loglevel;
+         logrow.log4table   := i.log4table;
+         logrow.log4alert   := i.log4alert;
+         logrow.log4trace   := i.log4trace;
+      END LOOP;
+      pkgctx    :=
+         plog.init ('TXPKS_#2080EX',
+                    plevel => NVL(logrow.loglevel,30),
+                    plogtable => (NVL(logrow.log4table,'N') = 'Y'),
+                    palert => (NVL(logrow.log4alert,'N') = 'Y'),
+                    ptrace => (NVL(logrow.log4trace,'N') = 'Y')
+            );
+END TXPKS_#2080EX;
+/
+
+
+-- End of DDL Script for Package SHBCBD.TXPKS_#2080EX
+
+-- Start of DDL Script for Package SHBCBD.TXPKS_#2081
+-- Generated 21-Dec-21 12:23:42 PM from SHBCBD@(DESCRIPTION =(ADDRESS_LIST =(ADDRESS = (PROTOCOL = TCP)(HOST = 192.168.1.188)(PORT = 1521)))(CONNECT_DATA =(SERVICE_NAME = db)))
+
+CREATE OR REPLACE 
+PACKAGE txpks_#2081
+/** ----------------------------------------------------------------------------------------------------
+ ** Module: TX
+ ** Description: 
+ ** and is copyrighted by FSS.
+ **
+ **    All rights reserved.  No part of this work may be reproduced, stored in a retrieval system,
+ **    adopted or transmitted in any form or by any means, electronic, mechanical, photographic,
+ **    graphic, optic recording or otherwise, translated in any language or computer language,
+ **    without the prior written permission of Financial Software Solutions. JSC.
+ **
+ **  MODIFICATION HISTORY
+ **  Person      Date           Comments
+ **  System      06/12/2021     Created
+ ** (c) 2008 by Financial Software Solutions. JSC.
+ ----------------------------------------------------------------------------------------------------*/
+IS
+
+FUNCTION fn_txProcess(p_xmlmsg in out varchar2,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER;
+FUNCTION fn_AutoTxProcess(p_txmsg in out tx.msg_rectype,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER;
+FUNCTION fn_BatchTxProcess(p_txmsg in out tx.msg_rectype,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER;
+FUNCTION fn_txrevert(p_txnum varchar2,p_txdate varchar2,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER;
+FUNCTION fn_txAppCheck(p_txmsg in out tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER;
+END;
+/
+
+
+CREATE OR REPLACE 
+PACKAGE BODY txpks_#2081
+IS
+   pkgctx   plog.log_ctx;
+   logrow   tlogdebug%ROWTYPE;
+
+PROCEDURE pr_txlog(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+IS
+l_custodycd varchar2(100);
+l_fullname varchar2(500);
+BEGIN
+plog.setbeginsection (pkgctx, 'pr_txlog');
+
+select c.custodycd , c.fullname into l_custodycd, l_fullname from cfmast c where c.secif = p_txmsg.txfields('01').value and c.cfstatus <> 'C' ;
+
+   INSERT INTO tllog(autoid, txnum, txdate, txtime, brid, tlid,offid, ovrrqs, chid, chkid, tltxcd, ibt, brid2, tlid2, ccyusage,off_line, deltd, brdate, busdate, txdesc, ipaddress,wsname, txstatus, msgsts, ovrsts, batchname, msgamt,msgacct, chktime, offtime, reftxnum,lvel,dstatus,last_lvel, last_dstatus,via,dbcode,cfcustodycd,cffullname,cmdobjname)
+       VALUES(
+       seq_tllog.NEXTVAL,
+       p_txmsg.txnum,
+       TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),
+       NVL(p_txmsg.txtime, to_char(sysdate,systemnums.C_TIME_FORMAT)),
+       p_txmsg.brid,
+       p_txmsg.tlid,
+       p_txmsg.offid,
+       p_txmsg.ovrrqd,
+       p_txmsg.chid,
+       p_txmsg.chkid,
+       p_txmsg.tltxcd,
+       p_txmsg.ibt,
+       p_txmsg.brid2,
+       p_txmsg.tlid2,
+       NULL ,
+       p_txmsg.off_line,
+       p_txmsg.deltd,
+       TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),
+       TO_DATE(p_txmsg.busdate, systemnums.C_DATE_FORMAT),
+       NVL('SHS tra ve ket qua xac nhan NDT CN',p_txmsg.txdesc),
+       p_txmsg.ipaddress,
+       p_txmsg.wsname,
+       p_txmsg.txstatus,
+       p_txmsg.msgsts,
+       p_txmsg.ovrsts,
+       p_txmsg.batchname,
+       null ,
+       p_txmsg.txfields('01').value ,
+       TO_CHAR(SYSDATE,systemnums.C_TIME_FORMAT), --decode(p_txmsg.chkid,NULL,TO_CHAR(SYSDATE,systemnums.C_TIME_FORMAT,p_txmsg.chkid)),
+       TO_CHAR(SYSDATE,systemnums.C_TIME_FORMAT), --decode(p_txmsg.offtime,NULL,TO_CHAR(SYSDATE,systemnums.C_TIME_FORMAT,p_txmsg.offtime)),
+       p_txmsg.reftxnum,p_txmsg.lvel,p_txmsg.dstatus,p_txmsg.last_lvel,p_txmsg.last_dstatus,p_txmsg.via,p_txmsg.dbcode,
+       l_custodycd ,
+       l_fullname ,
+       p_txmsg.cmdobjname);
+
+
+   --plog.debug(pkgctx, 'abt to insert into tllogfld');
+   INSERT INTO tllogfld(AUTOID, TXNUM, TXDATE, FLDCD, NVALUE, CVALUE, TXDESC)
+      VALUES( seq_tllogfld.NEXTVAL, p_txmsg.txnum, TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),'01',0,p_txmsg.txfields('01').value,'Secif');
+   --plog.debug(pkgctx, 'abt to insert into tllogfld');
+   INSERT INTO tllogfld(AUTOID, TXNUM, TXDATE, FLDCD, NVALUE, CVALUE, TXDESC)
+      VALUES( seq_tllogfld.NEXTVAL, p_txmsg.txnum, TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),'02',0,p_txmsg.txfields('02').value,'Isprofessional');
+   --plog.debug(pkgctx, 'abt to insert into tllogfld');
+   INSERT INTO tllogfld(AUTOID, TXNUM, TXDATE, FLDCD, NVALUE, CVALUE, TXDESC)
+      VALUES( seq_tllogfld.NEXTVAL, p_txmsg.txnum, TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),'03',0,p_txmsg.txfields('03').value,'From date');
+   --plog.debug(pkgctx, 'abt to insert into tllogfld');
+   INSERT INTO tllogfld(AUTOID, TXNUM, TXDATE, FLDCD, NVALUE, CVALUE, TXDESC)
+      VALUES( seq_tllogfld.NEXTVAL, p_txmsg.txnum, TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),'04',0,p_txmsg.txfields('04').value,'To date');
+   --Log worklow
+   txpks_txlog.pr_log_workflow(p_txmsg);
+
+   plog.setendsection (pkgctx, 'pr_txlog');
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+       plog.setendsection (pkgctx, 'pr_txlog');
+      RAISE errnums.E_SYSTEM_ERROR;
+END pr_txlog;--
+
+
+PROCEDURE pr_PrintInfo(p_txmsg in out tx.msg_rectype,p_err_code in out varchar2)
+IS
+   l_codeid varchar2(6);
+   l_acctno varchar2(30);
+   l_count NUMBER(10):= 0;
+BEGIN
+   plog.setbeginsection (pkgctx, 'pr_PrintInfo');
+
+    plog.setendsection (pkgctx, 'pr_PrintInfo');
+END pr_PrintInfo;
+
+FUNCTION fn_txAppAutoCheck(p_txmsg in out tx.msg_rectype,p_err_code in out varchar2)
+RETURN  NUMBER IS
+   l_allow         boolean;
+
+BEGIN
+plog.setbeginsection (pkgctx, 'fn_txAppAutoCheck');
+   plog.setendsection (pkgctx, 'fn_txAppAutoCheck');
+   RETURN systemnums.C_SUCCESS;
+EXCEPTION
+  WHEN others THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+       plog.setendsection (pkgctx, 'fn_txAppAutoCheck');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txAppAutoCheck;
+
+FUNCTION fn_txAppAutoUpdate(p_txmsg in tx.msg_rectype,p_err_code in out varchar2)
+RETURN  NUMBER
+IS
+l_txdesc VARCHAR2(1000);
+BEGIN
+
+
+   IF p_txmsg.deltd = 'Y' THEN -- Reversal transaction
+UPDATE TLLOG
+ SET DELTD = 'Y'
+      WHERE TXNUM = p_txmsg.txnum AND TXDATE = TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT);
+   END IF;
+   plog.setendsection (pkgctx, 'fn_txAppAutoUpdate');
+   RETURN systemnums.C_SUCCESS ;
+EXCEPTION
+  WHEN others THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+       plog.setendsection (pkgctx, 'fn_txAppAutoUpdate');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txAppAutoUpdate;
+
+
+FUNCTION fn_txAppUpdate(p_txmsg in tx.msg_rectype,p_err_code in out varchar2)
+RETURN NUMBER
+IS
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_txAppUpdate');
+-- Run Pre Update
+   IF txpks_#2081EX.fn_txPreAppUpdate(p_txmsg,p_err_code) <> systemnums.C_SUCCESS THEN
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+-- Run Auto Update
+   IF fn_txAppAutoUpdate(p_txmsg,p_err_code) <> systemnums.C_SUCCESS THEN
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+-- Run After Update
+   IF txpks_#2081EX.fn_txAftAppUpdate(p_txmsg,p_err_code) <> systemnums.C_SUCCESS THEN
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+   plog.setendsection (pkgctx, 'fn_txAppUpdate');
+   RETURN systemnums.C_SUCCESS;
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_txAppUpdate');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txAppUpdate;
+
+FUNCTION fn_txAppCheck(p_txmsg in out tx.msg_rectype, p_err_code out varchar2)
+RETURN NUMBER
+IS
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_txAppCheck');
+-- Run Pre check
+   IF txpks_#2081EX.fn_txPreAppCheck(p_txmsg,p_err_code) <> systemnums.C_SUCCESS THEN
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+-- Run Auto check
+   IF fn_txAppAutoCheck(p_txmsg,p_err_code) <> systemnums.C_SUCCESS THEN
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+-- Run After check
+   IF txpks_#2081EX.fn_txAftAppCheck(p_txmsg,p_err_code) <> systemnums.C_SUCCESS THEN
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+   plog.setendsection (pkgctx, 'fn_txAppCheck');
+   RETURN SYSTEMNUMS.C_SUCCESS;
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_txAppCheck');
+      RETURN errnums.C_SYSTEM_ERROR;
+END fn_txAppCheck;
+
+FUNCTION fn_txProcess(p_xmlmsg in out varchar2,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER
+IS
+   l_return_code VARCHAR2(30) := systemnums.C_SUCCESS;
+   l_txmsg tx.msg_rectype;
+   l_count NUMBER(3);
+   l_approve BOOLEAN := FALSE;
+   l_status VARCHAR2(1);
+   v_curr_lvel number(10);
+   l_last char(1);
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_txProcess');
+   SELECT count(*) INTO l_count
+   FROM SYSVAR
+   WHERE GRNAME='SYSTEM'
+   AND VARNAME='HOSTATUS'
+   AND VARVALUE= systemnums.C_OPERATION_ACTIVE;
+   IF l_count = 0 THEN
+       p_err_code := errnums.C_HOST_OPERATION_ISINACTIVE;
+       plog.setendsection (pkgctx, 'fn_txProcess');
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+   --plog.debug(pkgctx, 'xml2obj');
+   l_txmsg := txpks_msg.fn_xml2obj(p_xmlmsg);
+/*   l_count := 0; -- reset counter
+   SELECT count(*) INTO l_count
+   FROM SYSVAR
+   WHERE GRNAME='SYSTEM'
+   AND VARNAME='CURRDATE'
+   AND TO_DATE(VARVALUE,systemnums.C_DATE_FORMAT)= l_txmsg.txdate;
+   IF l_count = 0 THEN
+       plog.setendsection (pkgctx, 'fn_txProcess');
+       RETURN errnums.C_BRANCHDATE_INVALID;
+   END IF; */
+   --plog.debug(pkgctx, 'l_txmsg.txaction: ' || l_txmsg.txaction);
+   l_status:= l_txmsg.txstatus;
+   --BEGIN GHI NHAN DE TRANH DOUBLE HACH TOAN GIAO DICH
+   pr_lockaccount(l_txmsg,p_err_code);
+   if p_err_code <> 0 then
+       pr_unlockaccount(l_txmsg);
+       plog.setendsection (pkgctx, 'fn_txProcess');
+       RETURN errnums.C_SYSTEM_ERROR;
+   end if;
+   -- END GHI NHAN DE TRANH DOUBLE HACH TOAN GIAO DICH
+   l_last:='N';
+   --Xu ly workflow cho giao dich
+   if l_txmsg.updatemode <>'C' then       --Lan duyet sau
+       select (case when lvel= 0 then 1 else lvel end) into v_curr_lvel from tllog where txnum=l_txmsg.txnum and txdate=to_date(l_txmsg.txdate, systemnums.c_date_format);
+       for rec in (
+           select lvel,dstatus,aprlvel,refuselvel,last from tltxwf where tltxcd =l_txmsg.tltxcd and lvel =v_curr_lvel
+       ) loop
+           if l_txmsg.updatemode ='A' then
+               l_txmsg.last_lvel:= rec.lvel;
+               l_txmsg.last_dstatus:= rec.dstatus;
+               l_txmsg.lvel:= rec.aprlvel;
+               l_last:=rec.last;
+               select dstatus into l_txmsg.dstatus from tltxwf where tltxcd =l_txmsg.tltxcd and lvel = rec.aprlvel;
+           else
+               l_txmsg.last_lvel:= rec.lvel;
+               l_txmsg.last_dstatus:= rec.dstatus;
+               l_txmsg.lvel:= rec.refuselvel;
+               l_last:=rec.last;
+               select dstatus into l_txmsg.dstatus from tltxwf where tltxcd =l_txmsg.tltxcd and lvel = rec.refuselvel;
+           end if;
+        end loop;
+   Else --Updatemode ='C'       --Lan tao dau tien
+       for rec in (
+           select lvel,dstatus,aprlvel,refuselvel,last from tltxwf where tltxcd =l_txmsg.tltxcd and lvel =1
+       ) loop
+           l_txmsg.last_lvel:= rec.lvel;
+           l_txmsg.last_dstatus:= rec.dstatus;
+           l_txmsg.lvel:= rec.aprlvel;
+           l_last:=rec.last;
+           select dstatus into l_txmsg.dstatus from tltxwf where tltxcd =l_txmsg.tltxcd and lvel = rec.aprlvel;
+       end loop;
+    End If;
+    --Kiem tra quyen thuc hien giao dich
+    IF txpks_check.fn_txchecktransallow(l_txmsg) <> systemnums.C_SUCCESS THEN
+       p_err_code := errnums.E_TRANS_NOT_ALLOW;
+       RAISE errnums.E_BIZ_RULE_INVALID;
+    END IF;
+    IF l_txmsg.deltd <> txnums.C_DELTD_TXDELETED THEN
+       if l_txmsg.updatemode ='Z' then --Huy giao dich
+           if l_txmsg.txstatus = txstatusnums.c_txcompleted then
+               --Thong bao khong cho phep huy giao dich da hoan tat
+               p_err_code := errnums.C_SA_TRANS_APPROVED;
+               plog.setendsection (pkgctx, 'fn_txProcess');
+               RETURN errnums.C_BIZ_RULE_INVALID;
+           else
+               if l_txmsg.lvel<=1 then --Neu chuyen ve buoc Maker thi huy bo luon giao dich
+                   l_txmsg.txstatus := txstatusnums.c_txrefuse;
+                   IF fn_txAppUpdate(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                       RAISE errnums.E_BIZ_RULE_INVALID;
+                   END IF;
+                   txpks_txlog.pr_update_status(l_txmsg);
+               else
+                   l_txmsg.txstatus := txstatusnums.c_txpending;
+                   IF fn_txAppUpdate(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                       RAISE errnums.E_BIZ_RULE_INVALID;
+                   END IF;
+                   l_txmsg.ovrrqd:=errnums.C_CHECKER_CONTROL; --Ghi nhan buoc tiep theo van can duyet
+                   txpks_txlog.pr_update_status(l_txmsg);
+               end if;
+           end if;
+       end if;
+       if l_txmsg.updatemode ='R' then --Tu choi giao dich
+           if l_txmsg.txstatus = txstatusnums.c_txcompleted then
+               --Thong bao khong cho phep huy giao dich da hoan tat
+               p_err_code := errnums.C_SA_TRANS_APPROVED;
+               plog.setendsection (pkgctx, 'fn_txProcess');
+               RETURN errnums.C_BIZ_RULE_INVALID;
+           else
+               if l_txmsg.lvel<=1 then --Neu chuyen ve buoc Maker thi huy bo luon giao dich
+                   l_txmsg.txstatus := txstatusnums.c_txrejected;
+                   IF fn_txAppUpdate(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                       RAISE errnums.E_BIZ_RULE_INVALID;
+                   END IF;
+                   txpks_txlog.pr_update_status(l_txmsg);
+               else
+                   l_txmsg.txstatus := txstatusnums.c_txpending;
+                   IF fn_txAppUpdate(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                       RAISE errnums.E_BIZ_RULE_INVALID;
+                   END IF;
+                   l_txmsg.ovrrqd:=errnums.C_CHECKER_CONTROL; --Ghi nhan buoc tiep theo van can duyet
+                   txpks_txlog.pr_update_status(l_txmsg);
+               end if;
+           end if;
+       end if;
+       if  l_txmsg.updatemode ='C' or l_txmsg.updatemode ='A' then --Tao moi hoac duyet
+           IF l_txmsg.pretran = 'Y' THEN --Giao dich xac submit lan dau se check ko hach toan
+               IF fn_txAppCheck(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                   RAISE errnums.E_BIZ_RULE_INVALID;
+               END IF;
+               pr_PrintInfo(l_txmsg, p_err_code);
+           ELSE --pretran='N'
+               IF fn_txAppCheck(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                   RAISE errnums.E_BIZ_RULE_INVALID;
+               END IF;
+
+               if l_last='Y' then --Hach toan
+                   l_txmsg.txstatus := txstatusnums.c_txcompleted;
+               else
+                   l_txmsg.txstatus := txstatusnums.c_txpending;
+                   l_txmsg.ovrrqd:=errnums.C_CHECKER_CONTROL; --Ghi nhan buoc tiep theo van can duyet
+               end if;
+               IF fn_txAppUpdate(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                   RAISE errnums.E_BIZ_RULE_INVALID;
+               END IF;
+               If l_txmsg.updatemode <> 'C'  Then
+                   txpks_txlog.pr_update_status(l_txmsg);
+               Else
+                   pr_txlog(l_txmsg, p_err_code);
+               End If;
+           END IF; --<<END OF PROCESS PRETRAN>>
+       end if;
+   ELSE -- DELETING TX
+   -- <<BEGIN OF DELETING A TRANSACTION>>
+   -- This kind of tx has not yet updated mast table in the host
+   -- Only need update tllog status
+      IF fn_txAppUpdate(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+          RAISE errnums.E_BIZ_RULE_INVALID;
+      END IF;
+   -- <<END OF DELETING A TRANSACTION>>
+   END IF;
+   --plog.debug(pkgctx, 'obj2xml');
+   p_xmlmsg := txpks_msg.fn_obj2xml(l_txmsg);
+   plog.setendsection (pkgctx, 'fn_txProcess');
+   pr_unlockaccount(l_txmsg);
+   RETURN l_return_code;
+EXCEPTION
+WHEN errnums.E_BIZ_RULE_INVALID
+   THEN
+      FOR I IN (
+           SELECT ERRDESC,EN_ERRDESC FROM deferror
+           WHERE ERRNUM= p_err_code
+      ) LOOP
+           p_err_param := i.errdesc;
+      END LOOP;      l_txmsg.txException('ERRSOURCE').value := '';
+      l_txmsg.txException('ERRSOURCE').TYPE := 'System.String';
+      l_txmsg.txException('ERRCODE').value := p_err_code;
+      l_txmsg.txException('ERRCODE').TYPE := 'System.Int64';
+      l_txmsg.txException('ERRMSG').value := p_err_param;
+      l_txmsg.txException('ERRMSG').TYPE := 'System.String';
+      p_xmlmsg := txpks_msg.fn_obj2xml(l_txmsg);
+      plog.setendsection (pkgctx, 'fn_txProcess');
+      pr_unlockaccount(l_txmsg);
+      RETURN errnums.C_BIZ_RULE_INVALID;
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      p_err_param := 'SYSTEM_ERROR';
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      l_txmsg.txException('ERRSOURCE').value := '';
+      l_txmsg.txException('ERRSOURCE').TYPE := 'System.String';
+      l_txmsg.txException('ERRCODE').value := p_err_code;
+      l_txmsg.txException('ERRCODE').TYPE := 'System.Int64';
+      l_txmsg.txException('ERRMSG').value :=  p_err_param;
+      l_txmsg.txException('ERRMSG').TYPE := 'System.String';
+      p_xmlmsg := txpks_msg.fn_obj2xml(l_txmsg);
+      plog.setendsection (pkgctx, 'fn_txProcess');
+      pr_unlockaccount(l_txmsg);
+      RETURN errnums.C_SYSTEM_ERROR;
+END fn_txProcess;
+
+FUNCTION fn_AutoTxProcess(p_txmsg in out tx.msg_rectype,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER
+IS
+   l_return_code VARCHAR2(30) := systemnums.C_SUCCESS;
+
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_AutoTxProcess');
+   --BEGIN GHI NHAN DE TRANH DOUBLE HACH TOAN GIAO DICH
+   pr_lockaccount(p_txmsg,p_err_code);
+   if p_err_code <> 0 then
+       pr_unlockaccount(p_txmsg);
+       plog.setendsection (pkgctx, 'fn_txProcess');
+       RETURN errnums.C_SYSTEM_ERROR;
+   end if;   -- END GHI NHAN DE TRANH DOUBLE HACH TOAN GIAO DICH
+   IF fn_txAppCheck(p_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+        RAISE errnums.E_BIZ_RULE_INVALID;
+   END IF;
+   IF fn_txAppUpdate(p_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+        RAISE errnums.E_BIZ_RULE_INVALID;
+   END IF;
+   IF p_txmsg.deltd <> 'Y' THEN -- Normal transaction
+       pr_txlog(p_txmsg, p_err_code);
+   ELSE    -- Delete transaction
+       txpks_txlog.pr_txdellog(p_txmsg,p_err_code);
+   END IF;
+   plog.setendsection (pkgctx, 'fn_AutoTxProcess');
+   pr_unlockaccount(p_txmsg);
+   RETURN l_return_code;
+EXCEPTION
+   WHEN errnums.E_BIZ_RULE_INVALID
+   THEN
+      FOR I IN (
+           SELECT ERRDESC,EN_ERRDESC FROM deferror
+           WHERE ERRNUM= p_err_code
+      ) LOOP
+           p_err_param := i.errdesc;
+      END LOOP;
+      plog.setendsection (pkgctx, 'fn_AutoTxProcess');
+      pr_unlockaccount(p_txmsg);
+      RETURN errnums.C_BIZ_RULE_INVALID;
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      p_err_param := 'SYSTEM_ERROR';
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_AutoTxProcess');
+      pr_unlockaccount(p_txmsg);
+      RETURN errnums.C_SYSTEM_ERROR;
+END fn_AutoTxProcess;
+
+FUNCTION fn_BatchTxProcess(p_txmsg in out tx.msg_rectype,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER
+IS
+   l_return_code VARCHAR2(30) := systemnums.C_SUCCESS;
+
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_BatchTxProcess');
+   IF fn_txAppCheck(p_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+        RAISE errnums.E_BIZ_RULE_INVALID;
+   END IF;
+   IF fn_txAppUpdate(p_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+        RAISE errnums.E_BIZ_RULE_INVALID;
+   END IF;
+  /* IF fn_txAutoPostmap(p_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+        RAISE errnums.E_BIZ_RULE_INVALID;
+   END IF; */
+   IF p_txmsg.deltd <> 'Y' THEN -- Normal transaction
+       pr_txlog(p_txmsg, p_err_code);
+   ELSE    -- Delete transaction
+       txpks_txlog.pr_txdellog(p_txmsg,p_err_code);
+   END IF;
+
+   plog.setendsection (pkgctx, 'fn_BatchTxProcess');
+   RETURN l_return_code;
+EXCEPTION
+   WHEN errnums.E_BIZ_RULE_INVALID
+   THEN
+      FOR I IN (
+           SELECT ERRDESC,EN_ERRDESC FROM deferror
+           WHERE ERRNUM= p_err_code
+      ) LOOP
+           p_err_param := i.errdesc;
+      END LOOP;
+      plog.setendsection (pkgctx, 'fn_BatchTxProcess');
+      RETURN errnums.C_BIZ_RULE_INVALID;
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      p_err_param := 'SYSTEM_ERROR';
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_BatchTxProcess');
+      RETURN errnums.C_SYSTEM_ERROR;
+END fn_BatchTxProcess;
+
+FUNCTION fn_txrevert(p_txnum varchar2 ,p_txdate varchar2,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER
+IS
+   l_txmsg               tx.msg_rectype;
+   l_err_param           varchar2(300);
+   l_tllog               tx.tllog_rectype;
+   l_fldname             varchar2(100);
+   l_defname             varchar2(100);
+   l_fldtype             char(1);
+   l_return              number(20,0);
+   pv_refcursor            pkg_report.ref_cursor;
+   l_return_code VARCHAR2(30) := systemnums.C_SUCCESS;
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_txrevert');
+   OPEN pv_refcursor FOR
+   select * from tllog
+   where txnum=p_txnum and txdate=to_date(p_txdate,systemnums.c_date_format);
+   LOOP
+       FETCH pv_refcursor
+       INTO l_tllog;
+       EXIT WHEN pv_refcursor%NOTFOUND;
+       if l_tllog.deltd='Y' then
+           p_err_code:=errnums.C_SA_CANNOT_DELETETRANSACTION;
+           plog.setendsection (pkgctx, 'fn_txrevert');
+           RETURN errnums.C_SYSTEM_ERROR;
+       end if;
+       l_txmsg.msgtype:='T';
+       l_txmsg.local:='N';
+       l_txmsg.tlid        := l_tllog.tlid;
+       l_txmsg.off_line    := l_tllog.off_line;
+       l_txmsg.deltd       := txnums.C_DELTD_TXDELETED;
+       l_txmsg.txstatus    := txstatusnums.c_txcompleted;
+       l_txmsg.msgsts      := '0';
+       l_txmsg.ovrsts      := '0';
+       l_txmsg.batchname   := 'DEL';
+       l_txmsg.txdate:=to_date(l_tllog.txdate,systemnums.c_date_format);
+       l_txmsg.busdate:=to_date(l_tllog.busdate,systemnums.c_date_format);
+       l_txmsg.txnum:=l_tllog.txnum;
+       l_txmsg.tltxcd:=l_tllog.tltxcd;
+       l_txmsg.brid:=l_tllog.brid;
+       for rec in
+       (
+           select * from tllogfld
+           where txnum=p_txnum and txdate=to_date(p_txdate,systemnums.c_date_format)
+       )
+       loop
+       begin
+           select fldname, defname, fldtype
+           into l_fldname, l_defname, l_fldtype
+           from fldmaster
+           where objname=l_tllog.tltxcd and FLDNAME=rec.FLDCD;
+
+           l_txmsg.txfields (l_fldname).defname   := l_defname;
+           l_txmsg.txfields (l_fldname).TYPE      := l_fldtype;
+
+           if l_fldtype='C' then
+               l_txmsg.txfields (l_fldname).VALUE     := rec.CVALUE;
+           elsif   l_fldtype='N' then
+               l_txmsg.txfields (l_fldname).VALUE     := rec.NVALUE;
+           else
+               l_txmsg.txfields (l_fldname).VALUE     := rec.CVALUE;
+           end if;
+           --plog.debug (pkgctx,'field: ' || l_fldname || ' value:' || to_char(l_txmsg.txfields (l_fldname).VALUE));
+       exception when others then
+           l_err_param:=0;
+       end;
+       end loop;
+       IF txpks_#2081.fn_AutoTxProcess (l_txmsg,
+                                        p_err_code,
+                                        p_err_param
+          ) <> systemnums.c_success
+       THEN
+           plog.debug (pkgctx,
+           'got error 2081: ' || p_err_code
+           );
+           ROLLBACK;
+           plog.setendsection (pkgctx, 'fn_txrevert');
+           RETURN errnums.C_SYSTEM_ERROR;
+       END IF;
+       p_err_code:=0;
+       plog.setendsection (pkgctx, 'fn_txrevert');
+       return 0;
+       plog.setendsection (pkgctx, 'fn_txrevert');
+       p_err_code:=errnums.C_HOST_VOUCHER_NOT_FOUND;
+       RETURN errnums.C_SYSTEM_ERROR;
+   END LOOP;
+   p_err_code:=errnums.C_HOST_VOUCHER_NOT_FOUND;
+   plog.setendsection (pkgctx, 'fn_txrevert');
+   RETURN errnums.C_SYSTEM_ERROR;
+   plog.setendsection (pkgctx, 'fn_txrevert');
+   RETURN l_return_code;
+EXCEPTION
+   WHEN errnums.E_BIZ_RULE_INVALID
+   THEN
+      FOR I IN (
+           SELECT ERRDESC,EN_ERRDESC FROM deferror
+           WHERE ERRNUM= p_err_code
+      ) LOOP
+           p_err_param := i.errdesc;
+      END LOOP;
+      plog.setendsection (pkgctx, 'fn_txrevert');
+      RETURN errnums.C_BIZ_RULE_INVALID;
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      p_err_param := 'SYSTEM_ERROR';
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_txrevert');
+      RETURN errnums.C_SYSTEM_ERROR;
+END fn_txrevert;
+
+BEGIN
+      FOR i IN (SELECT *
+                FROM tlogdebug)
+      LOOP
+         logrow.loglevel    := i.loglevel;
+         logrow.log4table   := i.log4table;
+         logrow.log4alert   := i.log4alert;
+         logrow.log4trace   := i.log4trace;
+      END LOOP;
+      pkgctx    :=
+         plog.init ('txpks_#2081',
+                    plevel => NVL(logrow.loglevel,30),
+                    plogtable => (NVL(logrow.log4table,'N') = 'Y'),
+                    palert => (NVL(logrow.log4alert,'N') = 'Y'),
+                    ptrace => (NVL(logrow.log4trace,'N') = 'Y')
+            );
+END txpks_#2081;
+/
+
+
+-- End of DDL Script for Package SHBCBD.TXPKS_#2081
+
+-- Start of DDL Script for Package SHBCBD.TXPKS_#2081EX
+-- Generated 21-Dec-21 12:23:42 PM from SHBCBD@(DESCRIPTION =(ADDRESS_LIST =(ADDRESS = (PROTOCOL = TCP)(HOST = 192.168.1.188)(PORT = 1521)))(CONNECT_DATA =(SERVICE_NAME = db)))
+
+CREATE OR REPLACE 
+PACKAGE txpks_#2081ex
+/**----------------------------------------------------------------------------------------------------
+ ** Package: TXPKS_#2081EX
+ ** and is copyrighted by FSS.
+ **
+ **    All rights reserved.  No part of this work may be reproduced, stored in a retrieval system,
+ **    adopted or transmitted in any form or by any means, electronic, mechanical, photographic,
+ **    graphic, optic recording or otherwise, translated in any language or computer language,
+ **    without the prior written permission of Financial Software Solutions. JSC.
+ **
+ **  MODIFICATION HISTORY
+ **  Person      Date           Comments
+ **  System      06/12/2021     Created
+ **  
+ ** (c) 2008 by Financial Software Solutions. JSC.
+ ** ----------------------------------------------------------------------------------------------------*/
+IS
+FUNCTION fn_txPreAppCheck(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER;
+FUNCTION fn_txAftAppCheck(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER;
+FUNCTION fn_txPreAppUpdate(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER;
+FUNCTION fn_txAftAppUpdate(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER;
+END;
+/
+
+
+CREATE OR REPLACE 
+PACKAGE BODY txpks_#2081ex
+IS
+   pkgctx   plog.log_ctx;
+   logrow   tlogdebug%ROWTYPE;
+
+   c_secif            CONSTANT CHAR(2) := '01';
+   c_isprofessional   CONSTANT CHAR(2) := '02';
+   c_fromdate         CONSTANT CHAR(2) := '03';
+   c_todate           CONSTANT CHAR(2) := '04';
+FUNCTION fn_txPreAppCheck(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER
+IS
+
+l_secif varchar2(100);
+l_isprofessional varchar2(10);
+l_fromdate varchar2(100);
+l_todate varchar2(100);
+l_count number;
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_txPreAppCheck');
+   --plog.debug(pkgctx,'BEGIN OF fn_txPreAppCheck');
+   /***************************************************************************************************
+    * PUT YOUR SPECIFIC RULE HERE, FOR EXAMPLE:
+    * IF NOT <<YOUR BIZ CONDITION>> THEN
+    *    p_err_code := '<<ERRNUM>>'; -- Pre-defined in DEFERROR table
+    *    plog.setendsection (pkgctx, 'fn_txPreAppCheck');
+    *    RETURN errnums.C_BIZ_RULE_INVALID;
+    * END IF;
+    ***************************************************************************************************/
+
+    l_isprofessional:= p_txmsg.txfields(c_isprofessional).value;
+    l_secif:= p_txmsg.txfields(c_secif).value;
+    l_fromdate:= p_txmsg.txfields(c_fromdate).value;
+    l_todate:= p_txmsg.txfields(c_todate).value;
+
+
+     if fn_is_date_correct_format(l_fromdate)= -1 then
+           p_err_code:='-4000466';
+            return p_err_code;
+    end if;
+
+    if fn_is_date_correct_format(l_todate)= -1 then
+           p_err_code:='-4000467';
+            return p_err_code;
+    end if;
+    if l_secif is null then
+            p_err_code:='-4000455';
+            return p_err_code;
+        end if;
+      if l_isprofessional is null then
+            p_err_code:='-4000458';
+            return p_err_code;
+        end if;
+
+        if l_isprofessional not in ('Y','N') then
+            p_err_code:='-4000461';
+            return p_err_code;
+        end if;
+    if l_isprofessional = 'Y' then
+             if l_fromdate is null then
+                p_err_code:='-4000459';
+                return p_err_code;
+            end if;
+
+            if l_todate is null then
+                p_err_code:='-4000460';
+                return p_err_code;
+            end if;
+
+            if to_date(l_fromdate,'dd/mm/yyyy') > getcurrdate then
+                p_err_code:='-4001403';
+                return p_err_code;
+            end if;
+
+            if to_date(l_todate,'dd/mm/yyyy') <= to_date(l_fromdate,'dd/mm/yyyy') then
+                p_err_code:='-4000479';
+                return p_err_code;
+            end if;
+
+             if to_date(l_todate,'dd/mm/yyyy') <= getcurrdate then
+                p_err_code:='-4001384';
+                return p_err_code;
+            end if;
+
+
+    end if;
+
+     select count(*) into l_count from cfmast c where c.secif = l_secif and c.cfstatus <> 'C';
+    if l_count = 0 then
+        p_err_code:='-4000464';
+        return p_err_code;
+    end if;
+
+    select count(*) into l_count from cfmast c
+                                    where
+                                    c.secif = l_secif
+                                    and c.cfstatus <> 'C'
+                                    and c.isprofession='Y'
+                                    and to_date(c.professionfrdate,'dd/mm/yyyy') <= getcurrdate
+                                    and  getcurrdate < to_date(c.professiontodate,'dd/mm/yyyy');
+    if l_count > 0 then
+        p_err_code:='-4001402';
+        return p_err_code;
+    end if;
+
+    SELECT COUNT (*)
+          INTO l_count
+          FROM reqlog
+         WHERE tltxcd = '2030'
+               AND custodycd = (select custodycd from cfmast c
+                                    where c.secif = l_secif
+                                    and c.cfstatus <> 'C' )
+               AND status = 'P';
+
+        IF (l_count = 0)
+        THEN
+            p_err_code := errnums_trans.c_cash_status_oxmast;
+            plog.setendsection (pkgctx, 'fn_txPreAppCheck');
+            RETURN p_err_code;
+        END IF;
+
+
+    --plog.debug (pkgctx, '<<END OF fn_txPreAppCheck');
+    plog.setendsection (pkgctx, 'fn_txPreAppCheck');
+    RETURN systemnums.C_SUCCESS;
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_txPreAppCheck');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txPreAppCheck;
+
+FUNCTION fn_txAftAppCheck(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER
+IS
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_txAftAppCheck');
+   --plog.debug (pkgctx, '<<BEGIN OF fn_txAftAppCheck>>');
+   /***************************************************************************************************
+    * PUT YOUR SPECIFIC RULE HERE, FOR EXAMPLE:
+    * IF NOT <<YOUR BIZ CONDITION>> THEN
+    *    p_err_code := '<<ERRNUM>>'; -- Pre-defined in DEFERROR table
+    *    plog.setendsection (pkgctx, 'fn_txAftAppCheck');
+    *    RETURN errnums.C_BIZ_RULE_INVALID;
+    * END IF;
+    ***************************************************************************************************/
+   --plog.debug (pkgctx, '<<END OF fn_txAftAppCheck>>');
+   plog.setendsection (pkgctx, 'fn_txAftAppCheck');
+   RETURN systemnums.C_SUCCESS;
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_txAftAppCheck');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txAftAppCheck;
+
+FUNCTION fn_txPreAppUpdate(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER
+IS
+BEGIN
+    plog.setbeginsection (pkgctx, 'fn_txPreAppUpdate');
+    --plog.debug (pkgctx, '<<BEGIN OF fn_txPreAppUpdate');
+   /***************************************************************************************************
+    ** PUT YOUR SPECIFIC PROCESS HERE. . DO NOT COMMIT/ROLLBACK HERE, THE SYSTEM WILL DO IT
+    ***************************************************************************************************/
+     update cfmast c set    c.isprofession = p_txmsg.txfields(c_isprofessional).value,
+                            c.professionfrdate = case when p_txmsg.txfields(c_isprofessional).value ='N' then null else p_txmsg.txfields(c_fromdate).value end ,
+                            c.professiontodate = case when p_txmsg.txfields(c_isprofessional).value ='N' then null else p_txmsg.txfields(c_todate).value end
+                             where c.secif = p_txmsg.txfields(c_secif).value;
+
+    --plog.debug (pkgctx, '<<END OF fn_txPreAppUpdate');
+    plog.setendsection (pkgctx, 'fn_txPreAppUpdate');
+    RETURN systemnums.C_SUCCESS;
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+       plog.setendsection (pkgctx, 'fn_txPreAppUpdate');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txPreAppUpdate;
+
+FUNCTION fn_txAftAppUpdate(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER
+IS
+BEGIN
+    plog.setbeginsection (pkgctx, 'fn_txAftAppUpdate');
+    --plog.debug (pkgctx, '<<BEGIN OF fn_txAftAppUpdate');
+   /***************************************************************************************************
+    ** PUT YOUR SPECIFIC AFTER PROCESS HERE. DO NOT COMMIT/ROLLBACK HERE, THE SYSTEM WILL DO IT
+    ***************************************************************************************************/
+    --plog.debug (pkgctx, '<<END OF fn_txAftAppUpdate');
+    plog.setendsection (pkgctx, 'fn_txAftAppUpdate');
+    RETURN systemnums.C_SUCCESS;
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+       plog.setendsection (pkgctx, 'fn_txAftAppUpdate');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txAftAppUpdate;
+
+BEGIN
+      FOR i IN (SELECT *
+                FROM tlogdebug)
+      LOOP
+         logrow.loglevel    := i.loglevel;
+         logrow.log4table   := i.log4table;
+         logrow.log4alert   := i.log4alert;
+         logrow.log4trace   := i.log4trace;
+      END LOOP;
+      pkgctx    :=
+         plog.init ('TXPKS_#2081EX',
+                    plevel => NVL(logrow.loglevel,30),
+                    plogtable => (NVL(logrow.log4table,'N') = 'Y'),
+                    palert => (NVL(logrow.log4alert,'N') = 'Y'),
+                    ptrace => (NVL(logrow.log4trace,'N') = 'Y')
+            );
+END TXPKS_#2081EX;
+/
+
+
+-- End of DDL Script for Package SHBCBD.TXPKS_#2081EX
+
+-- Start of DDL Script for Package SHBCBD.TXPKS_#2082
+-- Generated 21-Dec-21 12:23:42 PM from SHBCBD@(DESCRIPTION =(ADDRESS_LIST =(ADDRESS = (PROTOCOL = TCP)(HOST = 192.168.1.188)(PORT = 1521)))(CONNECT_DATA =(SERVICE_NAME = db)))
+
+CREATE OR REPLACE 
+PACKAGE txpks_#2082
+/** ----------------------------------------------------------------------------------------------------
+ ** Module: TX
+ ** Description: 
+ ** and is copyrighted by FSS.
+ **
+ **    All rights reserved.  No part of this work may be reproduced, stored in a retrieval system,
+ **    adopted or transmitted in any form or by any means, electronic, mechanical, photographic,
+ **    graphic, optic recording or otherwise, translated in any language or computer language,
+ **    without the prior written permission of Financial Software Solutions. JSC.
+ **
+ **  MODIFICATION HISTORY
+ **  Person      Date           Comments
+ **  System      15/12/2021     Created
+ ** (c) 2008 by Financial Software Solutions. JSC.
+ ----------------------------------------------------------------------------------------------------*/
+IS
+
+FUNCTION fn_txProcess(p_xmlmsg in out varchar2,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER;
+FUNCTION fn_AutoTxProcess(p_txmsg in out tx.msg_rectype,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER;
+FUNCTION fn_BatchTxProcess(p_txmsg in out tx.msg_rectype,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER;
+FUNCTION fn_txrevert(p_txnum varchar2,p_txdate varchar2,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER;
+FUNCTION fn_txAppCheck(p_txmsg in out tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER;
+END;
+/
+
+
+CREATE OR REPLACE 
+PACKAGE BODY txpks_#2082
+IS
+   pkgctx   plog.log_ctx;
+   logrow   tlogdebug%ROWTYPE;
+
+PROCEDURE pr_txlog(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+IS
+l_custodycd varchar2(100);
+l_fullname varchar2(500);
+BEGIN
+plog.setbeginsection (pkgctx, 'pr_txlog');
+
+select c.custodycd , c.fullname into l_custodycd, l_fullname from cfmast c where c.secif = p_txmsg.txfields('01').value  and c.cfstatus <> 'C';
+   INSERT INTO tllog(autoid, txnum, txdate, txtime, brid, tlid,offid, ovrrqs, chid, chkid, tltxcd, ibt, brid2, tlid2, ccyusage,off_line, deltd, brdate, busdate, txdesc, ipaddress,wsname, txstatus, msgsts, ovrsts, batchname, msgamt,msgacct, chktime, offtime, reftxnum,lvel,dstatus,last_lvel, last_dstatus,via,dbcode,cfcustodycd,cffullname,cmdobjname)
+       VALUES(
+       seq_tllog.NEXTVAL,
+       p_txmsg.txnum,
+       TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),
+       NVL(p_txmsg.txtime, to_char(sysdate,systemnums.C_TIME_FORMAT)),
+       p_txmsg.brid,
+       p_txmsg.tlid,
+       p_txmsg.offid,
+       p_txmsg.ovrrqd,
+       p_txmsg.chid,
+       p_txmsg.chkid,
+       p_txmsg.tltxcd,
+       p_txmsg.ibt,
+       p_txmsg.brid2,
+       p_txmsg.tlid2,
+       NULL ,
+       p_txmsg.off_line,
+       p_txmsg.deltd,
+       TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),
+       TO_DATE(p_txmsg.busdate, systemnums.C_DATE_FORMAT),
+       NVL('Cap nhat CMND cua KH theo yeu cau tu SHS',p_txmsg.txdesc),
+       p_txmsg.ipaddress,
+       p_txmsg.wsname,
+       p_txmsg.txstatus,
+       p_txmsg.msgsts,
+       p_txmsg.ovrsts,
+       p_txmsg.batchname,
+       null ,
+       p_txmsg.txfields('04').value ,
+       TO_CHAR(SYSDATE,systemnums.C_TIME_FORMAT), --decode(p_txmsg.chkid,NULL,TO_CHAR(SYSDATE,systemnums.C_TIME_FORMAT,p_txmsg.chkid)),
+       TO_CHAR(SYSDATE,systemnums.C_TIME_FORMAT), --decode(p_txmsg.offtime,NULL,TO_CHAR(SYSDATE,systemnums.C_TIME_FORMAT,p_txmsg.offtime)),
+       p_txmsg.reftxnum,p_txmsg.lvel,p_txmsg.dstatus,p_txmsg.last_lvel,p_txmsg.last_dstatus,p_txmsg.via,p_txmsg.dbcode,
+       l_custodycd ,
+       l_fullname ,
+       p_txmsg.cmdobjname);
+
+
+   --plog.debug(pkgctx, 'abt to insert into tllogfld');
+   INSERT INTO tllogfld(AUTOID, TXNUM, TXDATE, FLDCD, NVALUE, CVALUE, TXDESC)
+      VALUES( seq_tllogfld.NEXTVAL, p_txmsg.txnum, TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),'01',0,p_txmsg.txfields('01').value,'Secif');
+   --plog.debug(pkgctx, 'abt to insert into tllogfld');
+   INSERT INTO tllogfld(AUTOID, TXNUM, TXDATE, FLDCD, NVALUE, CVALUE, TXDESC)
+      VALUES( seq_tllogfld.NEXTVAL, p_txmsg.txnum, TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),'02',0,p_txmsg.txfields('02').value,'Old idcode');
+   --plog.debug(pkgctx, 'abt to insert into tllogfld');
+   INSERT INTO tllogfld(AUTOID, TXNUM, TXDATE, FLDCD, NVALUE, CVALUE, TXDESC)
+      VALUES( seq_tllogfld.NEXTVAL, p_txmsg.txnum, TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),'03',0,p_txmsg.txfields('03').value,'Old idtype');
+   --plog.debug(pkgctx, 'abt to insert into tllogfld');
+   INSERT INTO tllogfld(AUTOID, TXNUM, TXDATE, FLDCD, NVALUE, CVALUE, TXDESC)
+      VALUES( seq_tllogfld.NEXTVAL, p_txmsg.txnum, TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),'04',0,p_txmsg.txfields('04').value,'New idcode');
+   --plog.debug(pkgctx, 'abt to insert into tllogfld');
+   INSERT INTO tllogfld(AUTOID, TXNUM, TXDATE, FLDCD, NVALUE, CVALUE, TXDESC)
+      VALUES( seq_tllogfld.NEXTVAL, p_txmsg.txnum, TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),'05',0,p_txmsg.txfields('05').value,'New idtype');
+   --plog.debug(pkgctx, 'abt to insert into tllogfld');
+   INSERT INTO tllogfld(AUTOID, TXNUM, TXDATE, FLDCD, NVALUE, CVALUE, TXDESC)
+      VALUES( seq_tllogfld.NEXTVAL, p_txmsg.txnum, TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),'06',0,p_txmsg.txfields('06').value,'Effect date');
+   --plog.debug(pkgctx, 'abt to insert into tllogfld');
+   INSERT INTO tllogfld(AUTOID, TXNUM, TXDATE, FLDCD, NVALUE, CVALUE, TXDESC)
+      VALUES( seq_tllogfld.NEXTVAL, p_txmsg.txnum, TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),'07',0,p_txmsg.txfields('07').value,'Expire date');
+   --Log worklow
+   txpks_txlog.pr_log_workflow(p_txmsg);
+
+   plog.setendsection (pkgctx, 'pr_txlog');
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+       plog.setendsection (pkgctx, 'pr_txlog');
+      RAISE errnums.E_SYSTEM_ERROR;
+END pr_txlog;--
+
+
+PROCEDURE pr_PrintInfo(p_txmsg in out tx.msg_rectype,p_err_code in out varchar2)
+IS
+   l_codeid varchar2(6);
+   l_acctno varchar2(30);
+   l_count NUMBER(10):= 0;
+BEGIN
+   plog.setbeginsection (pkgctx, 'pr_PrintInfo');
+
+    plog.setendsection (pkgctx, 'pr_PrintInfo');
+END pr_PrintInfo;
+
+FUNCTION fn_txAppAutoCheck(p_txmsg in out tx.msg_rectype,p_err_code in out varchar2)
+RETURN  NUMBER IS
+   l_allow         boolean;
+
+BEGIN
+plog.setbeginsection (pkgctx, 'fn_txAppAutoCheck');
+   plog.setendsection (pkgctx, 'fn_txAppAutoCheck');
+   RETURN systemnums.C_SUCCESS;
+EXCEPTION
+  WHEN others THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+       plog.setendsection (pkgctx, 'fn_txAppAutoCheck');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txAppAutoCheck;
+
+FUNCTION fn_txAppAutoUpdate(p_txmsg in tx.msg_rectype,p_err_code in out varchar2)
+RETURN  NUMBER
+IS
+l_txdesc VARCHAR2(1000);
+BEGIN
+
+
+   IF p_txmsg.deltd = 'Y' THEN -- Reversal transaction
+UPDATE TLLOG
+ SET DELTD = 'Y'
+      WHERE TXNUM = p_txmsg.txnum AND TXDATE = TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT);
+   END IF;
+   plog.setendsection (pkgctx, 'fn_txAppAutoUpdate');
+   RETURN systemnums.C_SUCCESS ;
+EXCEPTION
+  WHEN others THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+       plog.setendsection (pkgctx, 'fn_txAppAutoUpdate');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txAppAutoUpdate;
+
+
+FUNCTION fn_txAppUpdate(p_txmsg in tx.msg_rectype,p_err_code in out varchar2)
+RETURN NUMBER
+IS
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_txAppUpdate');
+-- Run Pre Update
+   IF txpks_#2082EX.fn_txPreAppUpdate(p_txmsg,p_err_code) <> systemnums.C_SUCCESS THEN
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+-- Run Auto Update
+   IF fn_txAppAutoUpdate(p_txmsg,p_err_code) <> systemnums.C_SUCCESS THEN
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+-- Run After Update
+   IF txpks_#2082EX.fn_txAftAppUpdate(p_txmsg,p_err_code) <> systemnums.C_SUCCESS THEN
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+   plog.setendsection (pkgctx, 'fn_txAppUpdate');
+   RETURN systemnums.C_SUCCESS;
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_txAppUpdate');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txAppUpdate;
+
+FUNCTION fn_txAppCheck(p_txmsg in out tx.msg_rectype, p_err_code out varchar2)
+RETURN NUMBER
+IS
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_txAppCheck');
+-- Run Pre check
+   IF txpks_#2082EX.fn_txPreAppCheck(p_txmsg,p_err_code) <> systemnums.C_SUCCESS THEN
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+-- Run Auto check
+   IF fn_txAppAutoCheck(p_txmsg,p_err_code) <> systemnums.C_SUCCESS THEN
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+-- Run After check
+   IF txpks_#2082EX.fn_txAftAppCheck(p_txmsg,p_err_code) <> systemnums.C_SUCCESS THEN
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+   plog.setendsection (pkgctx, 'fn_txAppCheck');
+   RETURN SYSTEMNUMS.C_SUCCESS;
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_txAppCheck');
+      RETURN errnums.C_SYSTEM_ERROR;
+END fn_txAppCheck;
+
+FUNCTION fn_txProcess(p_xmlmsg in out varchar2,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER
+IS
+   l_return_code VARCHAR2(30) := systemnums.C_SUCCESS;
+   l_txmsg tx.msg_rectype;
+   l_count NUMBER(3);
+   l_approve BOOLEAN := FALSE;
+   l_status VARCHAR2(1);
+   v_curr_lvel number(10);
+   l_last char(1);
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_txProcess');
+   SELECT count(*) INTO l_count
+   FROM SYSVAR
+   WHERE GRNAME='SYSTEM'
+   AND VARNAME='HOSTATUS'
+   AND VARVALUE= systemnums.C_OPERATION_ACTIVE;
+   IF l_count = 0 THEN
+       p_err_code := errnums.C_HOST_OPERATION_ISINACTIVE;
+       plog.setendsection (pkgctx, 'fn_txProcess');
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+   --plog.debug(pkgctx, 'xml2obj');
+   l_txmsg := txpks_msg.fn_xml2obj(p_xmlmsg);
+/*   l_count := 0; -- reset counter
+   SELECT count(*) INTO l_count
+   FROM SYSVAR
+   WHERE GRNAME='SYSTEM'
+   AND VARNAME='CURRDATE'
+   AND TO_DATE(VARVALUE,systemnums.C_DATE_FORMAT)= l_txmsg.txdate;
+   IF l_count = 0 THEN
+       plog.setendsection (pkgctx, 'fn_txProcess');
+       RETURN errnums.C_BRANCHDATE_INVALID;
+   END IF; */
+   --plog.debug(pkgctx, 'l_txmsg.txaction: ' || l_txmsg.txaction);
+   l_status:= l_txmsg.txstatus;
+   --BEGIN GHI NHAN DE TRANH DOUBLE HACH TOAN GIAO DICH
+   pr_lockaccount(l_txmsg,p_err_code);
+   if p_err_code <> 0 then
+       pr_unlockaccount(l_txmsg);
+       plog.setendsection (pkgctx, 'fn_txProcess');
+       RETURN errnums.C_SYSTEM_ERROR;
+   end if;
+   -- END GHI NHAN DE TRANH DOUBLE HACH TOAN GIAO DICH
+   l_last:='N';
+   --Xu ly workflow cho giao dich
+   if l_txmsg.updatemode <>'C' then       --Lan duyet sau
+       select (case when lvel= 0 then 1 else lvel end) into v_curr_lvel from tllog where txnum=l_txmsg.txnum and txdate=to_date(l_txmsg.txdate, systemnums.c_date_format);
+       for rec in (
+           select lvel,dstatus,aprlvel,refuselvel,last from tltxwf where tltxcd =l_txmsg.tltxcd and lvel =v_curr_lvel
+       ) loop
+           if l_txmsg.updatemode ='A' then
+               l_txmsg.last_lvel:= rec.lvel;
+               l_txmsg.last_dstatus:= rec.dstatus;
+               l_txmsg.lvel:= rec.aprlvel;
+               l_last:=rec.last;
+               select dstatus into l_txmsg.dstatus from tltxwf where tltxcd =l_txmsg.tltxcd and lvel = rec.aprlvel;
+           else
+               l_txmsg.last_lvel:= rec.lvel;
+               l_txmsg.last_dstatus:= rec.dstatus;
+               l_txmsg.lvel:= rec.refuselvel;
+               l_last:=rec.last;
+               select dstatus into l_txmsg.dstatus from tltxwf where tltxcd =l_txmsg.tltxcd and lvel = rec.refuselvel;
+           end if;
+        end loop;
+   Else --Updatemode ='C'       --Lan tao dau tien
+       for rec in (
+           select lvel,dstatus,aprlvel,refuselvel,last from tltxwf where tltxcd =l_txmsg.tltxcd and lvel =1
+       ) loop
+           l_txmsg.last_lvel:= rec.lvel;
+           l_txmsg.last_dstatus:= rec.dstatus;
+           l_txmsg.lvel:= rec.aprlvel;
+           l_last:=rec.last;
+           select dstatus into l_txmsg.dstatus from tltxwf where tltxcd =l_txmsg.tltxcd and lvel = rec.aprlvel;
+       end loop;
+    End If;
+    --Kiem tra quyen thuc hien giao dich
+    IF txpks_check.fn_txchecktransallow(l_txmsg) <> systemnums.C_SUCCESS THEN
+       p_err_code := errnums.E_TRANS_NOT_ALLOW;
+       RAISE errnums.E_BIZ_RULE_INVALID;
+    END IF;
+    IF l_txmsg.deltd <> txnums.C_DELTD_TXDELETED THEN
+       if l_txmsg.updatemode ='Z' then --Huy giao dich
+           if l_txmsg.txstatus = txstatusnums.c_txcompleted then
+               --Thong bao khong cho phep huy giao dich da hoan tat
+               p_err_code := errnums.C_SA_TRANS_APPROVED;
+               plog.setendsection (pkgctx, 'fn_txProcess');
+               RETURN errnums.C_BIZ_RULE_INVALID;
+           else
+               if l_txmsg.lvel<=1 then --Neu chuyen ve buoc Maker thi huy bo luon giao dich
+                   l_txmsg.txstatus := txstatusnums.c_txrefuse;
+                   IF fn_txAppUpdate(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                       RAISE errnums.E_BIZ_RULE_INVALID;
+                   END IF;
+                   txpks_txlog.pr_update_status(l_txmsg);
+               else
+                   l_txmsg.txstatus := txstatusnums.c_txpending;
+                   IF fn_txAppUpdate(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                       RAISE errnums.E_BIZ_RULE_INVALID;
+                   END IF;
+                   l_txmsg.ovrrqd:=errnums.C_CHECKER_CONTROL; --Ghi nhan buoc tiep theo van can duyet
+                   txpks_txlog.pr_update_status(l_txmsg);
+               end if;
+           end if;
+       end if;
+       if l_txmsg.updatemode ='R' then --Tu choi giao dich
+           if l_txmsg.txstatus = txstatusnums.c_txcompleted then
+               --Thong bao khong cho phep huy giao dich da hoan tat
+               p_err_code := errnums.C_SA_TRANS_APPROVED;
+               plog.setendsection (pkgctx, 'fn_txProcess');
+               RETURN errnums.C_BIZ_RULE_INVALID;
+           else
+               if l_txmsg.lvel<=1 then --Neu chuyen ve buoc Maker thi huy bo luon giao dich
+                   l_txmsg.txstatus := txstatusnums.c_txrejected;
+                   IF fn_txAppUpdate(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                       RAISE errnums.E_BIZ_RULE_INVALID;
+                   END IF;
+                   txpks_txlog.pr_update_status(l_txmsg);
+               else
+                   l_txmsg.txstatus := txstatusnums.c_txpending;
+                   IF fn_txAppUpdate(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                       RAISE errnums.E_BIZ_RULE_INVALID;
+                   END IF;
+                   l_txmsg.ovrrqd:=errnums.C_CHECKER_CONTROL; --Ghi nhan buoc tiep theo van can duyet
+                   txpks_txlog.pr_update_status(l_txmsg);
+               end if;
+           end if;
+       end if;
+       if  l_txmsg.updatemode ='C' or l_txmsg.updatemode ='A' then --Tao moi hoac duyet
+           IF l_txmsg.pretran = 'Y' THEN --Giao dich xac submit lan dau se check ko hach toan
+               IF fn_txAppCheck(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                   RAISE errnums.E_BIZ_RULE_INVALID;
+               END IF;
+               pr_PrintInfo(l_txmsg, p_err_code);
+           ELSE --pretran='N'
+               IF fn_txAppCheck(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                   RAISE errnums.E_BIZ_RULE_INVALID;
+               END IF;
+
+               if l_last='Y' then --Hach toan
+                   l_txmsg.txstatus := txstatusnums.c_txcompleted;
+               else
+                   l_txmsg.txstatus := txstatusnums.c_txpending;
+                   l_txmsg.ovrrqd:=errnums.C_CHECKER_CONTROL; --Ghi nhan buoc tiep theo van can duyet
+               end if;
+               IF fn_txAppUpdate(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                   RAISE errnums.E_BIZ_RULE_INVALID;
+               END IF;
+               If l_txmsg.updatemode <> 'C'  Then
+                   txpks_txlog.pr_update_status(l_txmsg);
+               Else
+                   pr_txlog(l_txmsg, p_err_code);
+               End If;
+           END IF; --<<END OF PROCESS PRETRAN>>
+       end if;
+   ELSE -- DELETING TX
+   -- <<BEGIN OF DELETING A TRANSACTION>>
+   -- This kind of tx has not yet updated mast table in the host
+   -- Only need update tllog status
+      IF fn_txAppUpdate(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+          RAISE errnums.E_BIZ_RULE_INVALID;
+      END IF;
+   -- <<END OF DELETING A TRANSACTION>>
+   END IF;
+   --plog.debug(pkgctx, 'obj2xml');
+   p_xmlmsg := txpks_msg.fn_obj2xml(l_txmsg);
+   plog.setendsection (pkgctx, 'fn_txProcess');
+   pr_unlockaccount(l_txmsg);
+   RETURN l_return_code;
+EXCEPTION
+WHEN errnums.E_BIZ_RULE_INVALID
+   THEN
+      FOR I IN (
+           SELECT ERRDESC,EN_ERRDESC FROM deferror
+           WHERE ERRNUM= p_err_code
+      ) LOOP
+           p_err_param := i.errdesc;
+      END LOOP;      l_txmsg.txException('ERRSOURCE').value := '';
+      l_txmsg.txException('ERRSOURCE').TYPE := 'System.String';
+      l_txmsg.txException('ERRCODE').value := p_err_code;
+      l_txmsg.txException('ERRCODE').TYPE := 'System.Int64';
+      l_txmsg.txException('ERRMSG').value := p_err_param;
+      l_txmsg.txException('ERRMSG').TYPE := 'System.String';
+      p_xmlmsg := txpks_msg.fn_obj2xml(l_txmsg);
+      plog.setendsection (pkgctx, 'fn_txProcess');
+      pr_unlockaccount(l_txmsg);
+      RETURN errnums.C_BIZ_RULE_INVALID;
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      p_err_param := 'SYSTEM_ERROR';
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      l_txmsg.txException('ERRSOURCE').value := '';
+      l_txmsg.txException('ERRSOURCE').TYPE := 'System.String';
+      l_txmsg.txException('ERRCODE').value := p_err_code;
+      l_txmsg.txException('ERRCODE').TYPE := 'System.Int64';
+      l_txmsg.txException('ERRMSG').value :=  p_err_param;
+      l_txmsg.txException('ERRMSG').TYPE := 'System.String';
+      p_xmlmsg := txpks_msg.fn_obj2xml(l_txmsg);
+      plog.setendsection (pkgctx, 'fn_txProcess');
+      pr_unlockaccount(l_txmsg);
+      RETURN errnums.C_SYSTEM_ERROR;
+END fn_txProcess;
+
+FUNCTION fn_AutoTxProcess(p_txmsg in out tx.msg_rectype,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER
+IS
+   l_return_code VARCHAR2(30) := systemnums.C_SUCCESS;
+
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_AutoTxProcess');
+   --BEGIN GHI NHAN DE TRANH DOUBLE HACH TOAN GIAO DICH
+   pr_lockaccount(p_txmsg,p_err_code);
+   if p_err_code <> 0 then
+       pr_unlockaccount(p_txmsg);
+       plog.setendsection (pkgctx, 'fn_txProcess');
+       RETURN errnums.C_SYSTEM_ERROR;
+   end if;   -- END GHI NHAN DE TRANH DOUBLE HACH TOAN GIAO DICH
+   IF fn_txAppCheck(p_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+        RAISE errnums.E_BIZ_RULE_INVALID;
+   END IF;
+   IF fn_txAppUpdate(p_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+        RAISE errnums.E_BIZ_RULE_INVALID;
+   END IF;
+   IF p_txmsg.deltd <> 'Y' THEN -- Normal transaction
+       pr_txlog(p_txmsg, p_err_code);
+   ELSE    -- Delete transaction
+       txpks_txlog.pr_txdellog(p_txmsg,p_err_code);
+   END IF;
+   plog.setendsection (pkgctx, 'fn_AutoTxProcess');
+   pr_unlockaccount(p_txmsg);
+   RETURN l_return_code;
+EXCEPTION
+   WHEN errnums.E_BIZ_RULE_INVALID
+   THEN
+      FOR I IN (
+           SELECT ERRDESC,EN_ERRDESC FROM deferror
+           WHERE ERRNUM= p_err_code
+      ) LOOP
+           p_err_param := i.errdesc;
+      END LOOP;
+      plog.setendsection (pkgctx, 'fn_AutoTxProcess');
+      pr_unlockaccount(p_txmsg);
+      RETURN errnums.C_BIZ_RULE_INVALID;
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      p_err_param := 'SYSTEM_ERROR';
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_AutoTxProcess');
+      pr_unlockaccount(p_txmsg);
+      RETURN errnums.C_SYSTEM_ERROR;
+END fn_AutoTxProcess;
+
+FUNCTION fn_BatchTxProcess(p_txmsg in out tx.msg_rectype,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER
+IS
+   l_return_code VARCHAR2(30) := systemnums.C_SUCCESS;
+
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_BatchTxProcess');
+   IF fn_txAppCheck(p_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+        RAISE errnums.E_BIZ_RULE_INVALID;
+   END IF;
+   IF fn_txAppUpdate(p_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+        RAISE errnums.E_BIZ_RULE_INVALID;
+   END IF;
+  /* IF fn_txAutoPostmap(p_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+        RAISE errnums.E_BIZ_RULE_INVALID;
+   END IF; */
+   IF p_txmsg.deltd <> 'Y' THEN -- Normal transaction
+       pr_txlog(p_txmsg, p_err_code);
+   ELSE    -- Delete transaction
+       txpks_txlog.pr_txdellog(p_txmsg,p_err_code);
+   END IF;
+
+   plog.setendsection (pkgctx, 'fn_BatchTxProcess');
+   RETURN l_return_code;
+EXCEPTION
+   WHEN errnums.E_BIZ_RULE_INVALID
+   THEN
+      FOR I IN (
+           SELECT ERRDESC,EN_ERRDESC FROM deferror
+           WHERE ERRNUM= p_err_code
+      ) LOOP
+           p_err_param := i.errdesc;
+      END LOOP;
+      plog.setendsection (pkgctx, 'fn_BatchTxProcess');
+      RETURN errnums.C_BIZ_RULE_INVALID;
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      p_err_param := 'SYSTEM_ERROR';
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_BatchTxProcess');
+      RETURN errnums.C_SYSTEM_ERROR;
+END fn_BatchTxProcess;
+
+FUNCTION fn_txrevert(p_txnum varchar2 ,p_txdate varchar2,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER
+IS
+   l_txmsg               tx.msg_rectype;
+   l_err_param           varchar2(300);
+   l_tllog               tx.tllog_rectype;
+   l_fldname             varchar2(100);
+   l_defname             varchar2(100);
+   l_fldtype             char(1);
+   l_return              number(20,0);
+   pv_refcursor            pkg_report.ref_cursor;
+   l_return_code VARCHAR2(30) := systemnums.C_SUCCESS;
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_txrevert');
+   OPEN pv_refcursor FOR
+   select * from tllog
+   where txnum=p_txnum and txdate=to_date(p_txdate,systemnums.c_date_format);
+   LOOP
+       FETCH pv_refcursor
+       INTO l_tllog;
+       EXIT WHEN pv_refcursor%NOTFOUND;
+       if l_tllog.deltd='Y' then
+           p_err_code:=errnums.C_SA_CANNOT_DELETETRANSACTION;
+           plog.setendsection (pkgctx, 'fn_txrevert');
+           RETURN errnums.C_SYSTEM_ERROR;
+       end if;
+       l_txmsg.msgtype:='T';
+       l_txmsg.local:='N';
+       l_txmsg.tlid        := l_tllog.tlid;
+       l_txmsg.off_line    := l_tllog.off_line;
+       l_txmsg.deltd       := txnums.C_DELTD_TXDELETED;
+       l_txmsg.txstatus    := txstatusnums.c_txcompleted;
+       l_txmsg.msgsts      := '0';
+       l_txmsg.ovrsts      := '0';
+       l_txmsg.batchname   := 'DEL';
+       l_txmsg.txdate:=to_date(l_tllog.txdate,systemnums.c_date_format);
+       l_txmsg.busdate:=to_date(l_tllog.busdate,systemnums.c_date_format);
+       l_txmsg.txnum:=l_tllog.txnum;
+       l_txmsg.tltxcd:=l_tllog.tltxcd;
+       l_txmsg.brid:=l_tllog.brid;
+       for rec in
+       (
+           select * from tllogfld
+           where txnum=p_txnum and txdate=to_date(p_txdate,systemnums.c_date_format)
+       )
+       loop
+       begin
+           select fldname, defname, fldtype
+           into l_fldname, l_defname, l_fldtype
+           from fldmaster
+           where objname=l_tllog.tltxcd and FLDNAME=rec.FLDCD;
+
+           l_txmsg.txfields (l_fldname).defname   := l_defname;
+           l_txmsg.txfields (l_fldname).TYPE      := l_fldtype;
+
+           if l_fldtype='C' then
+               l_txmsg.txfields (l_fldname).VALUE     := rec.CVALUE;
+           elsif   l_fldtype='N' then
+               l_txmsg.txfields (l_fldname).VALUE     := rec.NVALUE;
+           else
+               l_txmsg.txfields (l_fldname).VALUE     := rec.CVALUE;
+           end if;
+           --plog.debug (pkgctx,'field: ' || l_fldname || ' value:' || to_char(l_txmsg.txfields (l_fldname).VALUE));
+       exception when others then
+           l_err_param:=0;
+       end;
+       end loop;
+       IF txpks_#2082.fn_AutoTxProcess (l_txmsg,
+                                        p_err_code,
+                                        p_err_param
+          ) <> systemnums.c_success
+       THEN
+           plog.debug (pkgctx,
+           'got error 2082: ' || p_err_code
+           );
+           ROLLBACK;
+           plog.setendsection (pkgctx, 'fn_txrevert');
+           RETURN errnums.C_SYSTEM_ERROR;
+       END IF;
+       p_err_code:=0;
+       plog.setendsection (pkgctx, 'fn_txrevert');
+       return 0;
+       plog.setendsection (pkgctx, 'fn_txrevert');
+       p_err_code:=errnums.C_HOST_VOUCHER_NOT_FOUND;
+       RETURN errnums.C_SYSTEM_ERROR;
+   END LOOP;
+   p_err_code:=errnums.C_HOST_VOUCHER_NOT_FOUND;
+   plog.setendsection (pkgctx, 'fn_txrevert');
+   RETURN errnums.C_SYSTEM_ERROR;
+   plog.setendsection (pkgctx, 'fn_txrevert');
+   RETURN l_return_code;
+EXCEPTION
+   WHEN errnums.E_BIZ_RULE_INVALID
+   THEN
+      FOR I IN (
+           SELECT ERRDESC,EN_ERRDESC FROM deferror
+           WHERE ERRNUM= p_err_code
+      ) LOOP
+           p_err_param := i.errdesc;
+      END LOOP;
+      plog.setendsection (pkgctx, 'fn_txrevert');
+      RETURN errnums.C_BIZ_RULE_INVALID;
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      p_err_param := 'SYSTEM_ERROR';
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_txrevert');
+      RETURN errnums.C_SYSTEM_ERROR;
+END fn_txrevert;
+
+BEGIN
+      FOR i IN (SELECT *
+                FROM tlogdebug)
+      LOOP
+         logrow.loglevel    := i.loglevel;
+         logrow.log4table   := i.log4table;
+         logrow.log4alert   := i.log4alert;
+         logrow.log4trace   := i.log4trace;
+      END LOOP;
+      pkgctx    :=
+         plog.init ('txpks_#2082',
+                    plevel => NVL(logrow.loglevel,30),
+                    plogtable => (NVL(logrow.log4table,'N') = 'Y'),
+                    palert => (NVL(logrow.log4alert,'N') = 'Y'),
+                    ptrace => (NVL(logrow.log4trace,'N') = 'Y')
+            );
+END txpks_#2082;
+/
+
+
+-- End of DDL Script for Package SHBCBD.TXPKS_#2082
+
+-- Start of DDL Script for Package SHBCBD.TXPKS_#2082EX
+-- Generated 21-Dec-21 12:23:42 PM from SHBCBD@(DESCRIPTION =(ADDRESS_LIST =(ADDRESS = (PROTOCOL = TCP)(HOST = 192.168.1.188)(PORT = 1521)))(CONNECT_DATA =(SERVICE_NAME = db)))
+
+CREATE OR REPLACE 
+PACKAGE txpks_#2082ex
+/**----------------------------------------------------------------------------------------------------
+ ** Package: TXPKS_#2082EX
+ ** and is copyrighted by FSS.
+ **
+ **    All rights reserved.  No part of this work may be reproduced, stored in a retrieval system,
+ **    adopted or transmitted in any form or by any means, electronic, mechanical, photographic,
+ **    graphic, optic recording or otherwise, translated in any language or computer language,
+ **    without the prior written permission of Financial Software Solutions. JSC.
+ **
+ **  MODIFICATION HISTORY
+ **  Person      Date           Comments
+ **  System      15/12/2021     Created
+ **  
+ ** (c) 2008 by Financial Software Solutions. JSC.
+ ** ----------------------------------------------------------------------------------------------------*/
+IS
+FUNCTION fn_txPreAppCheck(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER;
+FUNCTION fn_txAftAppCheck(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER;
+FUNCTION fn_txPreAppUpdate(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER;
+FUNCTION fn_txAftAppUpdate(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER;
+END;
+/
+
+
+CREATE OR REPLACE 
+PACKAGE BODY txpks_#2082ex
+IS
+   pkgctx   plog.log_ctx;
+   logrow   tlogdebug%ROWTYPE;
+
+   c_secif            CONSTANT CHAR(2) := '01';
+   c_oldidcode        CONSTANT CHAR(2) := '02';
+   c_oldidtype        CONSTANT CHAR(2) := '03';
+   c_newidcode        CONSTANT CHAR(2) := '04';
+   c_newidtype        CONSTANT CHAR(2) := '05';
+   c_effdate          CONSTANT CHAR(2) := '06';
+   c_expdate          CONSTANT CHAR(2) := '07';
+FUNCTION fn_txPreAppCheck(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER
+IS
+
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_txPreAppCheck');
+   --plog.debug(pkgctx,'BEGIN OF fn_txPreAppCheck');
+   /***************************************************************************************************
+    * PUT YOUR SPECIFIC RULE HERE, FOR EXAMPLE:
+    * IF NOT <<YOUR BIZ CONDITION>> THEN
+    *    p_err_code := '<<ERRNUM>>'; -- Pre-defined in DEFERROR table
+    *    plog.setendsection (pkgctx, 'fn_txPreAppCheck');
+    *    RETURN errnums.C_BIZ_RULE_INVALID;
+    * END IF;
+    ***************************************************************************************************/
+    --plog.debug (pkgctx, '<<END OF fn_txPreAppCheck');
+    plog.setendsection (pkgctx, 'fn_txPreAppCheck');
+    RETURN systemnums.C_SUCCESS;
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_txPreAppCheck');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txPreAppCheck;
+
+FUNCTION fn_txAftAppCheck(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER
+IS
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_txAftAppCheck');
+   --plog.debug (pkgctx, '<<BEGIN OF fn_txAftAppCheck>>');
+   /***************************************************************************************************
+    * PUT YOUR SPECIFIC RULE HERE, FOR EXAMPLE:
+    * IF NOT <<YOUR BIZ CONDITION>> THEN
+    *    p_err_code := '<<ERRNUM>>'; -- Pre-defined in DEFERROR table
+    *    plog.setendsection (pkgctx, 'fn_txAftAppCheck');
+    *    RETURN errnums.C_BIZ_RULE_INVALID;
+    * END IF;
+    ***************************************************************************************************/
+   --plog.debug (pkgctx, '<<END OF fn_txAftAppCheck>>');
+   plog.setendsection (pkgctx, 'fn_txAftAppCheck');
+   RETURN systemnums.C_SUCCESS;
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_txAftAppCheck');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txAftAppCheck;
+
+FUNCTION fn_txPreAppUpdate(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER
+IS
+BEGIN
+    plog.setbeginsection (pkgctx, 'fn_txPreAppUpdate');
+    --plog.debug (pkgctx, '<<BEGIN OF fn_txPreAppUpdate');
+   /***************************************************************************************************
+    ** PUT YOUR SPECIFIC PROCESS HERE. . DO NOT COMMIT/ROLLBACK HERE, THE SYSTEM WILL DO IT
+    ***************************************************************************************************/
+    --plog.debug (pkgctx, '<<END OF fn_txPreAppUpdate');
+    plog.setendsection (pkgctx, 'fn_txPreAppUpdate');
+    RETURN systemnums.C_SUCCESS;
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+       plog.setendsection (pkgctx, 'fn_txPreAppUpdate');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txPreAppUpdate;
+
+FUNCTION fn_txAftAppUpdate(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER
+IS
+BEGIN
+    plog.setbeginsection (pkgctx, 'fn_txAftAppUpdate');
+    --plog.debug (pkgctx, '<<BEGIN OF fn_txAftAppUpdate');
+   /***************************************************************************************************
+    ** PUT YOUR SPECIFIC AFTER PROCESS HERE. DO NOT COMMIT/ROLLBACK HERE, THE SYSTEM WILL DO IT
+    ***************************************************************************************************/
+    --plog.debug (pkgctx, '<<END OF fn_txAftAppUpdate');
+    plog.setendsection (pkgctx, 'fn_txAftAppUpdate');
+    RETURN systemnums.C_SUCCESS;
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+       plog.setendsection (pkgctx, 'fn_txAftAppUpdate');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txAftAppUpdate;
+
+BEGIN
+      FOR i IN (SELECT *
+                FROM tlogdebug)
+      LOOP
+         logrow.loglevel    := i.loglevel;
+         logrow.log4table   := i.log4table;
+         logrow.log4alert   := i.log4alert;
+         logrow.log4trace   := i.log4trace;
+      END LOOP;
+      pkgctx    :=
+         plog.init ('TXPKS_#2082EX',
+                    plevel => NVL(logrow.loglevel,30),
+                    plogtable => (NVL(logrow.log4table,'N') = 'Y'),
+                    palert => (NVL(logrow.log4alert,'N') = 'Y'),
+                    ptrace => (NVL(logrow.log4trace,'N') = 'Y')
+            );
+END TXPKS_#2082EX;
+/
+
+
+-- End of DDL Script for Package SHBCBD.TXPKS_#2082EX
+
+-- Start of DDL Script for Package SHBCBD.TXPKS_#2083
+-- Generated 21-Dec-21 12:23:42 PM from SHBCBD@(DESCRIPTION =(ADDRESS_LIST =(ADDRESS = (PROTOCOL = TCP)(HOST = 192.168.1.188)(PORT = 1521)))(CONNECT_DATA =(SERVICE_NAME = db)))
+
+CREATE OR REPLACE 
+PACKAGE txpks_#2083
+/** ----------------------------------------------------------------------------------------------------
+ ** Module: TX
+ ** Description: 
+ ** and is copyrighted by FSS.
+ **
+ **    All rights reserved.  No part of this work may be reproduced, stored in a retrieval system,
+ **    adopted or transmitted in any form or by any means, electronic, mechanical, photographic,
+ **    graphic, optic recording or otherwise, translated in any language or computer language,
+ **    without the prior written permission of Financial Software Solutions. JSC.
+ **
+ **  MODIFICATION HISTORY
+ **  Person      Date           Comments
+ **  System      21/12/2021     Created
+ ** (c) 2008 by Financial Software Solutions. JSC.
+ ----------------------------------------------------------------------------------------------------*/
+IS
+
+FUNCTION fn_txProcess(p_xmlmsg in out varchar2,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER;
+FUNCTION fn_AutoTxProcess(p_txmsg in out tx.msg_rectype,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER;
+FUNCTION fn_BatchTxProcess(p_txmsg in out tx.msg_rectype,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER;
+FUNCTION fn_txrevert(p_txnum varchar2,p_txdate varchar2,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER;
+FUNCTION fn_txAppCheck(p_txmsg in out tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER;
+END;
+/
+
+
+CREATE OR REPLACE 
+PACKAGE BODY txpks_#2083
+IS
+   pkgctx   plog.log_ctx;
+   logrow   tlogdebug%ROWTYPE;
+
+PROCEDURE pr_txlog(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+IS
+l_symbol varchar2(50);
+l_no_owner varchar2(100);
+l_count NUMBER;   
+BEGIN
+plog.setbeginsection (pkgctx, 'pr_txlog');   
+
+   l_symbol := 'symbol_' || p_txmsg.txfields('02').value;
+
+   l_count := 0;    
+   select count(*) into l_count from seowner where symbol = p_txmsg.txfields('02').value;
+   if l_count > 0 then                 
+       --select se.symbol, se.no_owner into l_symbol, l_no_owner from seowner se where se.symbol = p_txmsg.txfields('01').value and rownum =1;      
+       l_no_owner := 'update_no_owner_';
+   else                
+       l_no_owner := 'addnew_no_owner_';
+   end if;      
+
+   l_no_owner := l_no_owner || TO_CHAR(p_txmsg.txfields('03').value);
+
+   --select ass.symbol, ass.fullname_vn into l_symbol, l_fullname from assetdtl ass where ass.symbol = p_txmsg.txfields('01').value and rownum =1;   
+
+
+   INSERT INTO tllog(autoid, txnum, txdate, txtime, brid, tlid,offid, ovrrqs, chid, chkid, tltxcd, ibt, brid2, tlid2, ccyusage,off_line, deltd, brdate, busdate, txdesc, ipaddress,wsname, txstatus, msgsts, ovrsts, batchname, msgamt,msgacct, chktime, offtime, reftxnum,lvel,dstatus,last_lvel, last_dstatus,via,dbcode,cfcustodycd,cffullname,cmdobjname)
+       VALUES(
+       seq_tllog.NEXTVAL,
+       p_txmsg.txnum,
+       TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),
+       NVL(p_txmsg.txtime, to_char(sysdate,systemnums.C_TIME_FORMAT)),
+       p_txmsg.brid,
+       p_txmsg.tlid,
+       p_txmsg.offid,
+       p_txmsg.ovrrqd,
+       p_txmsg.chid,
+       p_txmsg.chkid,
+       p_txmsg.tltxcd,
+       p_txmsg.ibt,
+       p_txmsg.brid2,
+       p_txmsg.tlid2,
+       NULL , 
+       p_txmsg.off_line,
+       p_txmsg.deltd,
+       TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),
+       TO_DATE(p_txmsg.busdate, systemnums.C_DATE_FORMAT),       
+       NVL('SHS G?I YÊU C?U C?P NH?T S? LU?NG NÐT S? H?U TP',p_txmsg.txdesc),
+       p_txmsg.ipaddress,
+       p_txmsg.wsname,
+       p_txmsg.txstatus,
+       p_txmsg.msgsts,
+       p_txmsg.ovrsts,
+       p_txmsg.batchname,
+       null,
+       p_txmsg.txfields('02').value , 
+       TO_CHAR(SYSDATE,systemnums.C_TIME_FORMAT), --decode(p_txmsg.chkid,NULL,TO_CHAR(SYSDATE,systemnums.C_TIME_FORMAT,p_txmsg.chkid)),
+       TO_CHAR(SYSDATE,systemnums.C_TIME_FORMAT), --decode(p_txmsg.offtime,NULL,TO_CHAR(SYSDATE,systemnums.C_TIME_FORMAT,p_txmsg.offtime)),
+       p_txmsg.reftxnum,p_txmsg.lvel,p_txmsg.dstatus,p_txmsg.last_lvel,p_txmsg.last_dstatus,p_txmsg.via,p_txmsg.dbcode,
+       l_symbol,
+       l_no_owner,
+       p_txmsg.cmdobjname);
+
+
+ --plog.debug(pkgctx, 'abt to insert into tllogfld');
+   INSERT INTO tllogfld(AUTOID, TXNUM, TXDATE, FLDCD, NVALUE, CVALUE, TXDESC)
+      VALUES( seq_tllogfld.NEXTVAL, p_txmsg.txnum, TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),'01',0,p_txmsg.txfields('01').value,'Requestid');
+
+   --plog.debug(pkgctx, 'abt to insert into tllogfld');
+   INSERT INTO tllogfld(AUTOID, TXNUM, TXDATE, FLDCD, NVALUE, CVALUE, TXDESC)
+      VALUES( seq_tllogfld.NEXTVAL, p_txmsg.txnum, TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),'02',0,p_txmsg.txfields('02').value,'Symbol');
+   --plog.debug(pkgctx, 'abt to insert into tllogfld');
+   INSERT INTO tllogfld(AUTOID, TXNUM, TXDATE, FLDCD, NVALUE, CVALUE, TXDESC)
+      VALUES( seq_tllogfld.NEXTVAL, p_txmsg.txnum, TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),'03',TO_NUMBER(p_txmsg.txfields('03').value),NULL,'Number owners');
+   --Log worklow
+   txpks_txlog.pr_log_workflow(p_txmsg);
+
+   plog.setendsection (pkgctx, 'pr_txlog');
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;   
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'pr_txlog');
+      RAISE errnums.E_SYSTEM_ERROR;
+END pr_txlog;-- 
+
+
+PROCEDURE pr_PrintInfo(p_txmsg in out tx.msg_rectype,p_err_code in out varchar2)
+IS
+   l_codeid varchar2(6);
+   l_acctno varchar2(30);
+   l_count NUMBER(10):= 0;
+BEGIN
+   plog.setbeginsection (pkgctx, 'pr_PrintInfo');
+
+    plog.setendsection (pkgctx, 'pr_PrintInfo');
+END pr_PrintInfo;
+
+FUNCTION fn_txAppAutoCheck(p_txmsg in out tx.msg_rectype,p_err_code in out varchar2)
+RETURN  NUMBER IS 
+   l_allow         boolean;
+
+BEGIN
+plog.setbeginsection (pkgctx, 'fn_txAppAutoCheck');
+   plog.setendsection (pkgctx, 'fn_txAppAutoCheck');
+   RETURN systemnums.C_SUCCESS;
+EXCEPTION
+  WHEN others THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+       plog.setendsection (pkgctx, 'fn_txAppAutoCheck');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txAppAutoCheck;
+
+FUNCTION fn_txAppAutoUpdate(p_txmsg in tx.msg_rectype,p_err_code in out varchar2)
+RETURN  NUMBER
+IS 
+l_txdesc VARCHAR2(1000);
+BEGIN
+
+
+   IF p_txmsg.deltd = 'Y' THEN -- Reversal transaction
+UPDATE TLLOG 
+ SET DELTD = 'Y'
+      WHERE TXNUM = p_txmsg.txnum AND TXDATE = TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT);
+   END IF;
+   plog.setendsection (pkgctx, 'fn_txAppAutoUpdate');
+   RETURN systemnums.C_SUCCESS ;
+EXCEPTION
+  WHEN others THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+       plog.setendsection (pkgctx, 'fn_txAppAutoUpdate');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txAppAutoUpdate;
+
+
+FUNCTION fn_txAppUpdate(p_txmsg in tx.msg_rectype,p_err_code in out varchar2)
+RETURN NUMBER
+IS
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_txAppUpdate');
+-- Run Pre Update
+   IF txpks_#2083EX.fn_txPreAppUpdate(p_txmsg,p_err_code) <> systemnums.C_SUCCESS THEN
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+-- Run Auto Update
+   IF fn_txAppAutoUpdate(p_txmsg,p_err_code) <> systemnums.C_SUCCESS THEN
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+-- Run After Update
+   IF txpks_#2083EX.fn_txAftAppUpdate(p_txmsg,p_err_code) <> systemnums.C_SUCCESS THEN
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+   plog.setendsection (pkgctx, 'fn_txAppUpdate');
+   RETURN systemnums.C_SUCCESS;
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_txAppUpdate');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txAppUpdate;
+
+FUNCTION fn_txAppCheck(p_txmsg in out tx.msg_rectype, p_err_code out varchar2)
+RETURN NUMBER
+IS
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_txAppCheck');
+-- Run Pre check
+   IF txpks_#2083EX.fn_txPreAppCheck(p_txmsg,p_err_code) <> systemnums.C_SUCCESS THEN
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+-- Run Auto check
+   IF fn_txAppAutoCheck(p_txmsg,p_err_code) <> systemnums.C_SUCCESS THEN
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+-- Run After check
+   IF txpks_#2083EX.fn_txAftAppCheck(p_txmsg,p_err_code) <> systemnums.C_SUCCESS THEN
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+   plog.setendsection (pkgctx, 'fn_txAppCheck');
+   RETURN SYSTEMNUMS.C_SUCCESS;
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_txAppCheck');
+      RETURN errnums.C_SYSTEM_ERROR;
+END fn_txAppCheck;
+
+FUNCTION fn_txProcess(p_xmlmsg in out varchar2,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER
+IS
+   l_return_code VARCHAR2(30) := systemnums.C_SUCCESS;
+   l_txmsg tx.msg_rectype;
+   l_count NUMBER(3);
+   l_approve BOOLEAN := FALSE;
+   l_status VARCHAR2(1);
+   v_curr_lvel number(10);
+   l_last char(1);
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_txProcess');
+   SELECT count(*) INTO l_count 
+   FROM SYSVAR
+   WHERE GRNAME='SYSTEM'
+   AND VARNAME='HOSTATUS'
+   AND VARVALUE= systemnums.C_OPERATION_ACTIVE;
+   IF l_count = 0 THEN
+       p_err_code := errnums.C_HOST_OPERATION_ISINACTIVE;
+       plog.setendsection (pkgctx, 'fn_txProcess');
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+   --plog.debug(pkgctx, 'xml2obj');
+   l_txmsg := txpks_msg.fn_xml2obj(p_xmlmsg);
+/*   l_count := 0; -- reset counter
+   SELECT count(*) INTO l_count 
+   FROM SYSVAR
+   WHERE GRNAME='SYSTEM'
+   AND VARNAME='CURRDATE'
+   AND TO_DATE(VARVALUE,systemnums.C_DATE_FORMAT)= l_txmsg.txdate;
+   IF l_count = 0 THEN
+       plog.setendsection (pkgctx, 'fn_txProcess');
+       RETURN errnums.C_BRANCHDATE_INVALID;
+   END IF; */
+   --plog.debug(pkgctx, 'l_txmsg.txaction: ' || l_txmsg.txaction);
+   l_status:= l_txmsg.txstatus;
+   --BEGIN GHI NHAN DE TRANH DOUBLE HACH TOAN GIAO DICH
+   pr_lockaccount(l_txmsg,p_err_code);
+   if p_err_code <> 0 then
+       pr_unlockaccount(l_txmsg);
+       plog.setendsection (pkgctx, 'fn_txProcess');
+       RETURN errnums.C_SYSTEM_ERROR;
+   end if;
+   -- END GHI NHAN DE TRANH DOUBLE HACH TOAN GIAO DICH
+   l_last:='N';
+   --Xu ly workflow cho giao dich
+   if l_txmsg.updatemode <>'C' then       --Lan duyet sau 
+       select (case when lvel= 0 then 1 else lvel end) into v_curr_lvel from tllog where txnum=l_txmsg.txnum and txdate=to_date(l_txmsg.txdate, systemnums.c_date_format);
+       for rec in (
+           select lvel,dstatus,aprlvel,refuselvel,last from tltxwf where tltxcd =l_txmsg.tltxcd and lvel =v_curr_lvel
+       ) loop
+           if l_txmsg.updatemode ='A' then
+               l_txmsg.last_lvel:= rec.lvel;
+               l_txmsg.last_dstatus:= rec.dstatus;
+               l_txmsg.lvel:= rec.aprlvel;
+               l_last:=rec.last;
+               select dstatus into l_txmsg.dstatus from tltxwf where tltxcd =l_txmsg.tltxcd and lvel = rec.aprlvel;
+           else
+               l_txmsg.last_lvel:= rec.lvel;
+               l_txmsg.last_dstatus:= rec.dstatus;
+               l_txmsg.lvel:= rec.refuselvel;
+               l_last:=rec.last;
+               select dstatus into l_txmsg.dstatus from tltxwf where tltxcd =l_txmsg.tltxcd and lvel = rec.refuselvel;
+           end if;
+        end loop;
+   Else --Updatemode ='C'       --Lan tao dau tien 
+       for rec in (
+           select lvel,dstatus,aprlvel,refuselvel,last from tltxwf where tltxcd =l_txmsg.tltxcd and lvel =1
+       ) loop
+           l_txmsg.last_lvel:= rec.lvel;
+           l_txmsg.last_dstatus:= rec.dstatus;
+           l_txmsg.lvel:= rec.aprlvel;
+           l_last:=rec.last;
+           select dstatus into l_txmsg.dstatus from tltxwf where tltxcd =l_txmsg.tltxcd and lvel = rec.aprlvel;
+       end loop;
+    End If;
+    --Kiem tra quyen thuc hien giao dich
+    IF txpks_check.fn_txchecktransallow(l_txmsg) <> systemnums.C_SUCCESS THEN
+       p_err_code := errnums.E_TRANS_NOT_ALLOW;
+       RAISE errnums.E_BIZ_RULE_INVALID;
+    END IF;
+    IF l_txmsg.deltd <> txnums.C_DELTD_TXDELETED THEN
+       if l_txmsg.updatemode ='Z' then --Huy giao dich 
+           if l_txmsg.txstatus = txstatusnums.c_txcompleted then
+               --Thong bao khong cho phep huy giao dich da hoan tat
+               p_err_code := errnums.C_SA_TRANS_APPROVED;
+               plog.setendsection (pkgctx, 'fn_txProcess');
+               RETURN errnums.C_BIZ_RULE_INVALID;
+           else
+               if l_txmsg.lvel<=1 then --Neu chuyen ve buoc Maker thi huy bo luon giao dich
+                   l_txmsg.txstatus := txstatusnums.c_txrefuse;
+                   IF fn_txAppUpdate(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                       RAISE errnums.E_BIZ_RULE_INVALID;
+                   END IF;
+                   txpks_txlog.pr_update_status(l_txmsg);
+               else
+                   l_txmsg.txstatus := txstatusnums.c_txpending;
+                   IF fn_txAppUpdate(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                       RAISE errnums.E_BIZ_RULE_INVALID;
+                   END IF;
+                   l_txmsg.ovrrqd:=errnums.C_CHECKER_CONTROL; --Ghi nhan buoc tiep theo van can duyet
+                   txpks_txlog.pr_update_status(l_txmsg);
+               end if;
+           end if; 
+       end if; 
+       if l_txmsg.updatemode ='R' then --Tu choi giao dich 
+           if l_txmsg.txstatus = txstatusnums.c_txcompleted then
+               --Thong bao khong cho phep huy giao dich da hoan tat
+               p_err_code := errnums.C_SA_TRANS_APPROVED;
+               plog.setendsection (pkgctx, 'fn_txProcess');
+               RETURN errnums.C_BIZ_RULE_INVALID;
+           else
+               if l_txmsg.lvel<=1 then --Neu chuyen ve buoc Maker thi huy bo luon giao dich
+                   l_txmsg.txstatus := txstatusnums.c_txrejected;
+                   IF fn_txAppUpdate(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                       RAISE errnums.E_BIZ_RULE_INVALID;
+                   END IF;
+                   txpks_txlog.pr_update_status(l_txmsg);
+               else
+                   l_txmsg.txstatus := txstatusnums.c_txpending;
+                   IF fn_txAppUpdate(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                       RAISE errnums.E_BIZ_RULE_INVALID;
+                   END IF;
+                   l_txmsg.ovrrqd:=errnums.C_CHECKER_CONTROL; --Ghi nhan buoc tiep theo van can duyet
+                   txpks_txlog.pr_update_status(l_txmsg);
+               end if;
+           end if; 
+       end if; 
+       if  l_txmsg.updatemode ='C' or l_txmsg.updatemode ='A' then --Tao moi hoac duyet
+           IF l_txmsg.pretran = 'Y' THEN --Giao dich xac submit lan dau se check ko hach toan
+               IF fn_txAppCheck(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                   RAISE errnums.E_BIZ_RULE_INVALID;
+               END IF;
+               pr_PrintInfo(l_txmsg, p_err_code);
+           ELSE --pretran='N'
+               IF fn_txAppCheck(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                   RAISE errnums.E_BIZ_RULE_INVALID;
+               END IF;
+
+               if l_last='Y' then --Hach toan
+                   l_txmsg.txstatus := txstatusnums.c_txcompleted;
+               else 
+                   l_txmsg.txstatus := txstatusnums.c_txpending;
+                   l_txmsg.ovrrqd:=errnums.C_CHECKER_CONTROL; --Ghi nhan buoc tiep theo van can duyet
+               end if;
+               IF fn_txAppUpdate(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                   RAISE errnums.E_BIZ_RULE_INVALID;
+               END IF;
+               If l_txmsg.updatemode <> 'C'  Then 
+                   txpks_txlog.pr_update_status(l_txmsg);
+               Else 
+                   pr_txlog(l_txmsg, p_err_code);
+               End If;
+           END IF; --<<END OF PROCESS PRETRAN>>
+       end if;
+   ELSE -- DELETING TX
+   -- <<BEGIN OF DELETING A TRANSACTION>>
+   -- This kind of tx has not yet updated mast table in the host
+   -- Only need update tllog status
+      IF fn_txAppUpdate(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+          RAISE errnums.E_BIZ_RULE_INVALID;
+      END IF;
+   -- <<END OF DELETING A TRANSACTION>>
+   END IF;
+   --plog.debug(pkgctx, 'obj2xml');
+   p_xmlmsg := txpks_msg.fn_obj2xml(l_txmsg);
+   plog.setendsection (pkgctx, 'fn_txProcess');
+   pr_unlockaccount(l_txmsg);
+   RETURN l_return_code;
+EXCEPTION
+WHEN errnums.E_BIZ_RULE_INVALID
+   THEN
+      FOR I IN (
+           SELECT ERRDESC,EN_ERRDESC FROM deferror
+           WHERE ERRNUM= p_err_code
+      ) LOOP 
+           p_err_param := i.errdesc;
+      END LOOP;      l_txmsg.txException('ERRSOURCE').value := '';
+      l_txmsg.txException('ERRSOURCE').TYPE := 'System.String';
+      l_txmsg.txException('ERRCODE').value := p_err_code;
+      l_txmsg.txException('ERRCODE').TYPE := 'System.Int64';
+      l_txmsg.txException('ERRMSG').value := p_err_param;
+      l_txmsg.txException('ERRMSG').TYPE := 'System.String';
+      p_xmlmsg := txpks_msg.fn_obj2xml(l_txmsg);
+      plog.setendsection (pkgctx, 'fn_txProcess');
+      pr_unlockaccount(l_txmsg);
+      RETURN errnums.C_BIZ_RULE_INVALID;
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      p_err_param := 'SYSTEM_ERROR';
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      l_txmsg.txException('ERRSOURCE').value := '';
+      l_txmsg.txException('ERRSOURCE').TYPE := 'System.String';
+      l_txmsg.txException('ERRCODE').value := p_err_code;
+      l_txmsg.txException('ERRCODE').TYPE := 'System.Int64';
+      l_txmsg.txException('ERRMSG').value :=  p_err_param;
+      l_txmsg.txException('ERRMSG').TYPE := 'System.String';
+      p_xmlmsg := txpks_msg.fn_obj2xml(l_txmsg);
+      plog.setendsection (pkgctx, 'fn_txProcess');
+      pr_unlockaccount(l_txmsg);
+      RETURN errnums.C_SYSTEM_ERROR;
+END fn_txProcess;
+
+FUNCTION fn_AutoTxProcess(p_txmsg in out tx.msg_rectype,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER
+IS
+   l_return_code VARCHAR2(30) := systemnums.C_SUCCESS;
+
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_AutoTxProcess');
+   --BEGIN GHI NHAN DE TRANH DOUBLE HACH TOAN GIAO DICH
+   pr_lockaccount(p_txmsg,p_err_code);
+   if p_err_code <> 0 then
+       pr_unlockaccount(p_txmsg); 
+       plog.setendsection (pkgctx, 'fn_txProcess');
+       RETURN errnums.C_SYSTEM_ERROR;
+   end if;   -- END GHI NHAN DE TRANH DOUBLE HACH TOAN GIAO DICH
+   IF fn_txAppCheck(p_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+        RAISE errnums.E_BIZ_RULE_INVALID;
+   END IF;
+   IF fn_txAppUpdate(p_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+        RAISE errnums.E_BIZ_RULE_INVALID;
+   END IF;
+   IF p_txmsg.deltd <> 'Y' THEN -- Normal transaction
+       pr_txlog(p_txmsg, p_err_code);
+   ELSE    -- Delete transaction
+       txpks_txlog.pr_txdellog(p_txmsg,p_err_code);
+   END IF;
+   plog.setendsection (pkgctx, 'fn_AutoTxProcess');
+   pr_unlockaccount(p_txmsg); 
+   RETURN l_return_code;
+EXCEPTION
+   WHEN errnums.E_BIZ_RULE_INVALID
+   THEN
+      FOR I IN (
+           SELECT ERRDESC,EN_ERRDESC FROM deferror
+           WHERE ERRNUM= p_err_code
+      ) LOOP 
+           p_err_param := i.errdesc;
+      END LOOP;
+      plog.setendsection (pkgctx, 'fn_AutoTxProcess');
+      pr_unlockaccount(p_txmsg); 
+      RETURN errnums.C_BIZ_RULE_INVALID;
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      p_err_param := 'SYSTEM_ERROR';
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_AutoTxProcess');
+      pr_unlockaccount(p_txmsg); 
+      RETURN errnums.C_SYSTEM_ERROR;
+END fn_AutoTxProcess;
+
+FUNCTION fn_BatchTxProcess(p_txmsg in out tx.msg_rectype,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER
+IS
+   l_return_code VARCHAR2(30) := systemnums.C_SUCCESS;
+
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_BatchTxProcess');
+   IF fn_txAppCheck(p_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+        RAISE errnums.E_BIZ_RULE_INVALID;
+   END IF;
+   IF fn_txAppUpdate(p_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+        RAISE errnums.E_BIZ_RULE_INVALID;
+   END IF;
+  /* IF fn_txAutoPostmap(p_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+        RAISE errnums.E_BIZ_RULE_INVALID;
+   END IF; */
+   IF p_txmsg.deltd <> 'Y' THEN -- Normal transaction
+       pr_txlog(p_txmsg, p_err_code);
+   ELSE    -- Delete transaction
+       txpks_txlog.pr_txdellog(p_txmsg,p_err_code);
+   END IF;
+
+   plog.setendsection (pkgctx, 'fn_BatchTxProcess');
+   RETURN l_return_code;
+EXCEPTION
+   WHEN errnums.E_BIZ_RULE_INVALID
+   THEN
+      FOR I IN (
+           SELECT ERRDESC,EN_ERRDESC FROM deferror
+           WHERE ERRNUM= p_err_code
+      ) LOOP 
+           p_err_param := i.errdesc;
+      END LOOP;
+      plog.setendsection (pkgctx, 'fn_BatchTxProcess');
+      RETURN errnums.C_BIZ_RULE_INVALID;
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      p_err_param := 'SYSTEM_ERROR';
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_BatchTxProcess');
+      RETURN errnums.C_SYSTEM_ERROR;
+END fn_BatchTxProcess;
+
+FUNCTION fn_txrevert(p_txnum varchar2 ,p_txdate varchar2,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER
+IS
+   l_txmsg               tx.msg_rectype;
+   l_err_param           varchar2(300);
+   l_tllog               tx.tllog_rectype;
+   l_fldname             varchar2(100);
+   l_defname             varchar2(100);
+   l_fldtype             char(1);
+   l_return              number(20,0);
+   pv_refcursor            pkg_report.ref_cursor;
+   l_return_code VARCHAR2(30) := systemnums.C_SUCCESS;
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_txrevert');
+   OPEN pv_refcursor FOR
+   select * from tllog
+   where txnum=p_txnum and txdate=to_date(p_txdate,systemnums.c_date_format);
+   LOOP
+       FETCH pv_refcursor
+       INTO l_tllog;
+       EXIT WHEN pv_refcursor%NOTFOUND;
+       if l_tllog.deltd='Y' then
+           p_err_code:=errnums.C_SA_CANNOT_DELETETRANSACTION;
+           plog.setendsection (pkgctx, 'fn_txrevert');
+           RETURN errnums.C_SYSTEM_ERROR;
+       end if;
+       l_txmsg.msgtype:='T';
+       l_txmsg.local:='N';
+       l_txmsg.tlid        := l_tllog.tlid;
+       l_txmsg.off_line    := l_tllog.off_line;
+       l_txmsg.deltd       := txnums.C_DELTD_TXDELETED;
+       l_txmsg.txstatus    := txstatusnums.c_txcompleted;
+       l_txmsg.msgsts      := '0';
+       l_txmsg.ovrsts      := '0';
+       l_txmsg.batchname   := 'DEL';
+       l_txmsg.txdate:=to_date(l_tllog.txdate,systemnums.c_date_format);
+       l_txmsg.busdate:=to_date(l_tllog.busdate,systemnums.c_date_format);
+       l_txmsg.txnum:=l_tllog.txnum;
+       l_txmsg.tltxcd:=l_tllog.tltxcd;
+       l_txmsg.brid:=l_tllog.brid;
+       for rec in
+       (
+           select * from tllogfld
+           where txnum=p_txnum and txdate=to_date(p_txdate,systemnums.c_date_format)
+       )
+       loop
+       begin
+           select fldname, defname, fldtype
+           into l_fldname, l_defname, l_fldtype
+           from fldmaster
+           where objname=l_tllog.tltxcd and FLDNAME=rec.FLDCD;
+
+           l_txmsg.txfields (l_fldname).defname   := l_defname;
+           l_txmsg.txfields (l_fldname).TYPE      := l_fldtype;
+
+           if l_fldtype='C' then
+               l_txmsg.txfields (l_fldname).VALUE     := rec.CVALUE;
+           elsif   l_fldtype='N' then
+               l_txmsg.txfields (l_fldname).VALUE     := rec.NVALUE;
+           else
+               l_txmsg.txfields (l_fldname).VALUE     := rec.CVALUE;
+           end if;
+           --plog.debug (pkgctx,'field: ' || l_fldname || ' value:' || to_char(l_txmsg.txfields (l_fldname).VALUE));
+       exception when others then
+           l_err_param:=0;
+       end;
+       end loop;
+       IF txpks_#2083.fn_AutoTxProcess (l_txmsg,
+                                        p_err_code,
+                                        p_err_param
+          ) <> systemnums.c_success
+       THEN
+           plog.debug (pkgctx,
+           'got error 2083: ' || p_err_code
+           );
+           ROLLBACK;
+           plog.setendsection (pkgctx, 'fn_txrevert');
+           RETURN errnums.C_SYSTEM_ERROR;
+       END IF;
+       p_err_code:=0;
+       plog.setendsection (pkgctx, 'fn_txrevert');
+       return 0;
+       plog.setendsection (pkgctx, 'fn_txrevert');
+       p_err_code:=errnums.C_HOST_VOUCHER_NOT_FOUND;
+       RETURN errnums.C_SYSTEM_ERROR;
+   END LOOP;
+   p_err_code:=errnums.C_HOST_VOUCHER_NOT_FOUND;
+   plog.setendsection (pkgctx, 'fn_txrevert');
+   RETURN errnums.C_SYSTEM_ERROR;
+   plog.setendsection (pkgctx, 'fn_txrevert');
+   RETURN l_return_code;
+EXCEPTION
+   WHEN errnums.E_BIZ_RULE_INVALID
+   THEN
+      FOR I IN (
+           SELECT ERRDESC,EN_ERRDESC FROM deferror
+           WHERE ERRNUM= p_err_code
+      ) LOOP 
+           p_err_param := i.errdesc;
+      END LOOP;
+      plog.setendsection (pkgctx, 'fn_txrevert');
+      RETURN errnums.C_BIZ_RULE_INVALID;
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      p_err_param := 'SYSTEM_ERROR';
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_txrevert');
+      RETURN errnums.C_SYSTEM_ERROR;
+END fn_txrevert;
+
+BEGIN
+      FOR i IN (SELECT *
+                FROM tlogdebug)
+      LOOP
+         logrow.loglevel    := i.loglevel;
+         logrow.log4table   := i.log4table;
+         logrow.log4alert   := i.log4alert;
+         logrow.log4trace   := i.log4trace;
+      END LOOP;
+      pkgctx    :=
+         plog.init ('txpks_#2083',
+                    plevel => NVL(logrow.loglevel,30),
+                    plogtable => (NVL(logrow.log4table,'N') = 'Y'),
+                    palert => (NVL(logrow.log4alert,'N') = 'Y'),
+                    ptrace => (NVL(logrow.log4trace,'N') = 'Y')
+            );
+END txpks_#2083;
+/
+
+
+-- End of DDL Script for Package SHBCBD.TXPKS_#2083
+
+-- Start of DDL Script for Package SHBCBD.TXPKS_#2083EX
+-- Generated 21-Dec-21 12:23:42 PM from SHBCBD@(DESCRIPTION =(ADDRESS_LIST =(ADDRESS = (PROTOCOL = TCP)(HOST = 192.168.1.188)(PORT = 1521)))(CONNECT_DATA =(SERVICE_NAME = db)))
+
+CREATE OR REPLACE 
+PACKAGE txpks_#2083ex
+/**----------------------------------------------------------------------------------------------------
+ ** Package: TXPKS_#2083EX
+ ** and is copyrighted by FSS.
+ **
+ **    All rights reserved.  No part of this work may be reproduced, stored in a retrieval system,
+ **    adopted or transmitted in any form or by any means, electronic, mechanical, photographic,
+ **    graphic, optic recording or otherwise, translated in any language or computer language,
+ **    without the prior written permission of Financial Software Solutions. JSC.
+ **
+ **  MODIFICATION HISTORY
+ **  Person      Date           Comments
+ **  System      21/12/2021     Created
+ **  
+ ** (c) 2008 by Financial Software Solutions. JSC.
+ ** ----------------------------------------------------------------------------------------------------*/
+IS
+FUNCTION fn_txPreAppCheck(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER;
+FUNCTION fn_txAftAppCheck(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER;
+FUNCTION fn_txPreAppUpdate(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER;
+FUNCTION fn_txAftAppUpdate(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER;
+END;
+/
+
+
+CREATE OR REPLACE 
+PACKAGE BODY txpks_#2083ex
+IS
+   pkgctx   plog.log_ctx;
+   logrow   tlogdebug%ROWTYPE;
+
+   c_requestid        CONSTANT CHAR(2) := '01';
+   c_symbol           CONSTANT CHAR(2) := '02';
+   c_no_owner         CONSTANT CHAR(2) := '03';
+FUNCTION fn_txPreAppCheck(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER
+IS
+
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_txPreAppCheck');
+   --plog.debug(pkgctx,'BEGIN OF fn_txPreAppCheck');
+   /***************************************************************************************************
+    * PUT YOUR SPECIFIC RULE HERE, FOR EXAMPLE:
+    * IF NOT <<YOUR BIZ CONDITION>> THEN
+    *    p_err_code := '<<ERRNUM>>'; -- Pre-defined in DEFERROR table
+    *    plog.setendsection (pkgctx, 'fn_txPreAppCheck');
+    *    RETURN errnums.C_BIZ_RULE_INVALID;
+    * END IF;
+    ***************************************************************************************************/
+    --plog.debug (pkgctx, '<<END OF fn_txPreAppCheck');
+    plog.setendsection (pkgctx, 'fn_txPreAppCheck');
+    RETURN systemnums.C_SUCCESS;
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_txPreAppCheck');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txPreAppCheck;
+
+FUNCTION fn_txAftAppCheck(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER
+IS
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_txAftAppCheck');
+   --plog.debug (pkgctx, '<<BEGIN OF fn_txAftAppCheck>>');
+   /***************************************************************************************************
+    * PUT YOUR SPECIFIC RULE HERE, FOR EXAMPLE:
+    * IF NOT <<YOUR BIZ CONDITION>> THEN
+    *    p_err_code := '<<ERRNUM>>'; -- Pre-defined in DEFERROR table
+    *    plog.setendsection (pkgctx, 'fn_txAftAppCheck');
+    *    RETURN errnums.C_BIZ_RULE_INVALID;
+    * END IF;
+    ***************************************************************************************************/
+   --plog.debug (pkgctx, '<<END OF fn_txAftAppCheck>>');
+   plog.setendsection (pkgctx, 'fn_txAftAppCheck');
+   RETURN systemnums.C_SUCCESS;
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_txAftAppCheck');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txAftAppCheck;
+
+FUNCTION fn_txPreAppUpdate(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER
+IS
+BEGIN
+    plog.setbeginsection (pkgctx, 'fn_txPreAppUpdate');
+    --plog.debug (pkgctx, '<<BEGIN OF fn_txPreAppUpdate');
+   /***************************************************************************************************
+    ** PUT YOUR SPECIFIC PROCESS HERE. . DO NOT COMMIT/ROLLBACK HERE, THE SYSTEM WILL DO IT
+    ***************************************************************************************************/
+    --plog.debug (pkgctx, '<<END OF fn_txPreAppUpdate');
+    plog.setendsection (pkgctx, 'fn_txPreAppUpdate');
+    RETURN systemnums.C_SUCCESS;
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+       plog.setendsection (pkgctx, 'fn_txPreAppUpdate');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txPreAppUpdate;
+
+FUNCTION fn_txAftAppUpdate(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER
+IS
+BEGIN
+    plog.setbeginsection (pkgctx, 'fn_txAftAppUpdate');
+    --plog.debug (pkgctx, '<<BEGIN OF fn_txAftAppUpdate');
+   /***************************************************************************************************
+    ** PUT YOUR SPECIFIC AFTER PROCESS HERE. DO NOT COMMIT/ROLLBACK HERE, THE SYSTEM WILL DO IT
+    ***************************************************************************************************/
+    --plog.debug (pkgctx, '<<END OF fn_txAftAppUpdate');
+    plog.setendsection (pkgctx, 'fn_txAftAppUpdate');
+    RETURN systemnums.C_SUCCESS;
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+       plog.setendsection (pkgctx, 'fn_txAftAppUpdate');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txAftAppUpdate;
+
+BEGIN
+      FOR i IN (SELECT *
+                FROM tlogdebug)
+      LOOP
+         logrow.loglevel    := i.loglevel;
+         logrow.log4table   := i.log4table;
+         logrow.log4alert   := i.log4alert;
+         logrow.log4trace   := i.log4trace;
+      END LOOP;
+      pkgctx    :=
+         plog.init ('TXPKS_#2083EX',
+                    plevel => NVL(logrow.loglevel,30),
+                    plogtable => (NVL(logrow.log4table,'N') = 'Y'),
+                    palert => (NVL(logrow.log4alert,'N') = 'Y'),
+                    ptrace => (NVL(logrow.log4trace,'N') = 'Y')
+            );
+END TXPKS_#2083EX;
+/
+
+
+-- End of DDL Script for Package SHBCBD.TXPKS_#2083EX
+
+-- Start of DDL Script for Package SHBCBD.TXPKS_#2085
+-- Generated 21-Dec-21 12:23:42 PM from SHBCBD@(DESCRIPTION =(ADDRESS_LIST =(ADDRESS = (PROTOCOL = TCP)(HOST = 192.168.1.188)(PORT = 1521)))(CONNECT_DATA =(SERVICE_NAME = db)))
+
+CREATE OR REPLACE 
+PACKAGE txpks_#2085
+/** ----------------------------------------------------------------------------------------------------
+ ** Module: TX
+ ** Description: 
+ ** and is copyrighted by FSS.
+ **
+ **    All rights reserved.  No part of this work may be reproduced, stored in a retrieval system,
+ **    adopted or transmitted in any form or by any means, electronic, mechanical, photographic,
+ **    graphic, optic recording or otherwise, translated in any language or computer language,
+ **    without the prior written permission of Financial Software Solutions. JSC.
+ **
+ **  MODIFICATION HISTORY
+ **  Person      Date           Comments
+ **  System      14/12/2021     Created
+ ** (c) 2008 by Financial Software Solutions. JSC.
+ ----------------------------------------------------------------------------------------------------*/
+IS
+
+FUNCTION fn_txProcess(p_xmlmsg in out varchar2,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER;
+FUNCTION fn_AutoTxProcess(p_txmsg in out tx.msg_rectype,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER;
+FUNCTION fn_BatchTxProcess(p_txmsg in out tx.msg_rectype,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER;
+FUNCTION fn_txrevert(p_txnum varchar2,p_txdate varchar2,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER;
+FUNCTION fn_txAppCheck(p_txmsg in out tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER;
+END;
+/
+
+
+CREATE OR REPLACE 
+PACKAGE BODY txpks_#2085
+IS
+   pkgctx   plog.log_ctx;
+   logrow   tlogdebug%ROWTYPE;
+
+PROCEDURE pr_txlog(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+IS
+l_fullname varchar2(300);
+l_custodycd varchar2(100);
+
+BEGIN
+plog.setbeginsection (pkgctx, 'pr_txlog');
+
+SELECT c.CUSTODYCD , c.FULLNAME INTO l_custodycd, l_fullname FROM cfmast c WHERE c.SECIF = p_txmsg.txfields('02').value;
+   INSERT INTO tllog(autoid, txnum, txdate, txtime, brid, tlid,offid, ovrrqs, chid, chkid, tltxcd, ibt, brid2, tlid2, ccyusage,off_line, deltd, brdate, busdate, txdesc, ipaddress,wsname, txstatus, msgsts, ovrsts, batchname, msgamt,msgacct, chktime, offtime, reftxnum,lvel,dstatus,last_lvel, last_dstatus,via,dbcode,cfcustodycd,cffullname,cmdobjname)
+       VALUES(
+       seq_tllog.NEXTVAL,
+       p_txmsg.txnum,
+       TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),
+       NVL(p_txmsg.txtime, to_char(sysdate,systemnums.C_TIME_FORMAT)),
+       p_txmsg.brid,
+       p_txmsg.tlid,
+       p_txmsg.offid,
+       p_txmsg.ovrrqd,
+       p_txmsg.chid,
+       p_txmsg.chkid,
+       p_txmsg.tltxcd,
+       p_txmsg.ibt,
+       p_txmsg.brid2,
+       p_txmsg.tlid2,
+       p_txmsg.txfields('01').value ,
+       p_txmsg.off_line,
+       p_txmsg.deltd,
+       TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),
+       TO_DATE(p_txmsg.busdate, systemnums.C_DATE_FORMAT),
+       NVL('SHS gui yeu cau dong bo so du trai phieu',p_txmsg.txdesc),
+       p_txmsg.ipaddress,
+       p_txmsg.wsname,
+       p_txmsg.txstatus,
+       p_txmsg.msgsts,
+       p_txmsg.ovrsts,
+       p_txmsg.batchname,
+       p_txmsg.txfields('06').value ,
+       p_txmsg.txfields('02').value ,
+       TO_CHAR(SYSDATE,systemnums.C_TIME_FORMAT), --decode(p_txmsg.chkid,NULL,TO_CHAR(SYSDATE,systemnums.C_TIME_FORMAT,p_txmsg.chkid)),
+       TO_CHAR(SYSDATE,systemnums.C_TIME_FORMAT), --decode(p_txmsg.offtime,NULL,TO_CHAR(SYSDATE,systemnums.C_TIME_FORMAT,p_txmsg.offtime)),
+       p_txmsg.reftxnum,p_txmsg.lvel,p_txmsg.dstatus,p_txmsg.last_lvel,p_txmsg.last_dstatus,p_txmsg.via,p_txmsg.dbcode,
+       l_custodycd ,
+       l_fullname ,
+       p_txmsg.cmdobjname);
+
+
+   --plog.debug(pkgctx, 'abt to insert into tllogfld');
+   INSERT INTO tllogfld(AUTOID, TXNUM, TXDATE, FLDCD, NVALUE, CVALUE, TXDESC)
+      VALUES( seq_tllogfld.NEXTVAL, p_txmsg.txnum, TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),'01',0,p_txmsg.txfields('01').value,'Symbol');
+   --plog.debug(pkgctx, 'abt to insert into tllogfld');
+   INSERT INTO tllogfld(AUTOID, TXNUM, TXDATE, FLDCD, NVALUE, CVALUE, TXDESC)
+      VALUES( seq_tllogfld.NEXTVAL, p_txmsg.txnum, TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),'02',0,p_txmsg.txfields('02').value,'Secif');
+   --plog.debug(pkgctx, 'abt to insert into tllogfld');
+   INSERT INTO tllogfld(AUTOID, TXNUM, TXDATE, FLDCD, NVALUE, CVALUE, TXDESC)
+      VALUES( seq_tllogfld.NEXTVAL, p_txmsg.txnum, TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),'03',0,p_txmsg.txfields('03').value,'Idcode');
+   --plog.debug(pkgctx, 'abt to insert into tllogfld');
+   INSERT INTO tllogfld(AUTOID, TXNUM, TXDATE, FLDCD, NVALUE, CVALUE, TXDESC)
+      VALUES( seq_tllogfld.NEXTVAL, p_txmsg.txnum, TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),'04',0,p_txmsg.txfields('04').value,'Idtype');
+   --plog.debug(pkgctx, 'abt to insert into tllogfld');
+   INSERT INTO tllogfld(AUTOID, TXNUM, TXDATE, FLDCD, NVALUE, CVALUE, TXDESC)
+      VALUES( seq_tllogfld.NEXTVAL, p_txmsg.txnum, TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),'05',0,p_txmsg.txfields('05').value,'Trntype');
+   --plog.debug(pkgctx, 'abt to insert into tllogfld');
+   INSERT INTO tllogfld(AUTOID, TXNUM, TXDATE, FLDCD, NVALUE, CVALUE, TXDESC)
+      VALUES( seq_tllogfld.NEXTVAL, p_txmsg.txnum, TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT),'06',TO_NUMBER(p_txmsg.txfields('06').value),NULL,'Qtty');
+   --Log worklow
+   txpks_txlog.pr_log_workflow(p_txmsg);
+
+   plog.setendsection (pkgctx, 'pr_txlog');
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+       plog.setendsection (pkgctx, 'pr_txlog');
+      RAISE errnums.E_SYSTEM_ERROR;
+END pr_txlog;--
+
+
+PROCEDURE pr_PrintInfo(p_txmsg in out tx.msg_rectype,p_err_code in out varchar2)
+IS
+   l_codeid varchar2(6);
+   l_acctno varchar2(30);
+   l_count NUMBER(10):= 0;
+BEGIN
+   plog.setbeginsection (pkgctx, 'pr_PrintInfo');
+
+    plog.setendsection (pkgctx, 'pr_PrintInfo');
+END pr_PrintInfo;
+
+FUNCTION fn_txAppAutoCheck(p_txmsg in out tx.msg_rectype,p_err_code in out varchar2)
+RETURN  NUMBER IS
+   l_allow         boolean;
+
+BEGIN
+plog.setbeginsection (pkgctx, 'fn_txAppAutoCheck');
+   plog.setendsection (pkgctx, 'fn_txAppAutoCheck');
+   RETURN systemnums.C_SUCCESS;
+EXCEPTION
+  WHEN others THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+       plog.setendsection (pkgctx, 'fn_txAppAutoCheck');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txAppAutoCheck;
+
+FUNCTION fn_txAppAutoUpdate(p_txmsg in tx.msg_rectype,p_err_code in out varchar2)
+RETURN  NUMBER
+IS
+l_txdesc VARCHAR2(1000);
+BEGIN
+
+
+   IF p_txmsg.deltd = 'Y' THEN -- Reversal transaction
+UPDATE TLLOG
+ SET DELTD = 'Y'
+      WHERE TXNUM = p_txmsg.txnum AND TXDATE = TO_DATE(p_txmsg.txdate, systemnums.C_DATE_FORMAT);
+   END IF;
+   plog.setendsection (pkgctx, 'fn_txAppAutoUpdate');
+   RETURN systemnums.C_SUCCESS ;
+EXCEPTION
+  WHEN others THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+       plog.setendsection (pkgctx, 'fn_txAppAutoUpdate');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txAppAutoUpdate;
+
+
+FUNCTION fn_txAppUpdate(p_txmsg in tx.msg_rectype,p_err_code in out varchar2)
+RETURN NUMBER
+IS
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_txAppUpdate');
+-- Run Pre Update
+   IF txpks_#2085EX.fn_txPreAppUpdate(p_txmsg,p_err_code) <> systemnums.C_SUCCESS THEN
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+-- Run Auto Update
+   IF fn_txAppAutoUpdate(p_txmsg,p_err_code) <> systemnums.C_SUCCESS THEN
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+-- Run After Update
+   IF txpks_#2085EX.fn_txAftAppUpdate(p_txmsg,p_err_code) <> systemnums.C_SUCCESS THEN
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+   plog.setendsection (pkgctx, 'fn_txAppUpdate');
+   RETURN systemnums.C_SUCCESS;
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_txAppUpdate');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txAppUpdate;
+
+FUNCTION fn_txAppCheck(p_txmsg in out tx.msg_rectype, p_err_code out varchar2)
+RETURN NUMBER
+IS
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_txAppCheck');
+-- Run Pre check
+   IF txpks_#2085EX.fn_txPreAppCheck(p_txmsg,p_err_code) <> systemnums.C_SUCCESS THEN
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+-- Run Auto check
+   IF fn_txAppAutoCheck(p_txmsg,p_err_code) <> systemnums.C_SUCCESS THEN
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+-- Run After check
+   IF txpks_#2085EX.fn_txAftAppCheck(p_txmsg,p_err_code) <> systemnums.C_SUCCESS THEN
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+   plog.setendsection (pkgctx, 'fn_txAppCheck');
+   RETURN SYSTEMNUMS.C_SUCCESS;
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_txAppCheck');
+      RETURN errnums.C_SYSTEM_ERROR;
+END fn_txAppCheck;
+
+FUNCTION fn_txProcess(p_xmlmsg in out varchar2,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER
+IS
+   l_return_code VARCHAR2(30) := systemnums.C_SUCCESS;
+   l_txmsg tx.msg_rectype;
+   l_count NUMBER(3);
+   l_approve BOOLEAN := FALSE;
+   l_status VARCHAR2(1);
+   v_curr_lvel number(10);
+   l_last char(1);
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_txProcess');
+   SELECT count(*) INTO l_count
+   FROM SYSVAR
+   WHERE GRNAME='SYSTEM'
+   AND VARNAME='HOSTATUS'
+   AND VARVALUE= systemnums.C_OPERATION_ACTIVE;
+   IF l_count = 0 THEN
+       p_err_code := errnums.C_HOST_OPERATION_ISINACTIVE;
+       plog.setendsection (pkgctx, 'fn_txProcess');
+       RETURN errnums.C_BIZ_RULE_INVALID;
+   END IF;
+   --plog.debug(pkgctx, 'xml2obj');
+   l_txmsg := txpks_msg.fn_xml2obj(p_xmlmsg);
+/*   l_count := 0; -- reset counter
+   SELECT count(*) INTO l_count
+   FROM SYSVAR
+   WHERE GRNAME='SYSTEM'
+   AND VARNAME='CURRDATE'
+   AND TO_DATE(VARVALUE,systemnums.C_DATE_FORMAT)= l_txmsg.txdate;
+   IF l_count = 0 THEN
+       plog.setendsection (pkgctx, 'fn_txProcess');
+       RETURN errnums.C_BRANCHDATE_INVALID;
+   END IF; */
+   --plog.debug(pkgctx, 'l_txmsg.txaction: ' || l_txmsg.txaction);
+   l_status:= l_txmsg.txstatus;
+   --BEGIN GHI NHAN DE TRANH DOUBLE HACH TOAN GIAO DICH
+   pr_lockaccount(l_txmsg,p_err_code);
+   if p_err_code <> 0 then
+       pr_unlockaccount(l_txmsg);
+       plog.setendsection (pkgctx, 'fn_txProcess');
+       RETURN errnums.C_SYSTEM_ERROR;
+   end if;
+   -- END GHI NHAN DE TRANH DOUBLE HACH TOAN GIAO DICH
+   l_last:='N';
+   --Xu ly workflow cho giao dich
+   if l_txmsg.updatemode <>'C' then       --Lan duyet sau
+       select (case when lvel= 0 then 1 else lvel end) into v_curr_lvel from tllog where txnum=l_txmsg.txnum and txdate=to_date(l_txmsg.txdate, systemnums.c_date_format);
+       for rec in (
+           select lvel,dstatus,aprlvel,refuselvel,last from tltxwf where tltxcd =l_txmsg.tltxcd and lvel =v_curr_lvel
+       ) loop
+           if l_txmsg.updatemode ='A' then
+               l_txmsg.last_lvel:= rec.lvel;
+               l_txmsg.last_dstatus:= rec.dstatus;
+               l_txmsg.lvel:= rec.aprlvel;
+               l_last:=rec.last;
+               select dstatus into l_txmsg.dstatus from tltxwf where tltxcd =l_txmsg.tltxcd and lvel = rec.aprlvel;
+           else
+               l_txmsg.last_lvel:= rec.lvel;
+               l_txmsg.last_dstatus:= rec.dstatus;
+               l_txmsg.lvel:= rec.refuselvel;
+               l_last:=rec.last;
+               select dstatus into l_txmsg.dstatus from tltxwf where tltxcd =l_txmsg.tltxcd and lvel = rec.refuselvel;
+           end if;
+        end loop;
+   Else --Updatemode ='C'       --Lan tao dau tien
+       for rec in (
+           select lvel,dstatus,aprlvel,refuselvel,last from tltxwf where tltxcd =l_txmsg.tltxcd and lvel =1
+       ) loop
+           l_txmsg.last_lvel:= rec.lvel;
+           l_txmsg.last_dstatus:= rec.dstatus;
+           l_txmsg.lvel:= rec.aprlvel;
+           l_last:=rec.last;
+           select dstatus into l_txmsg.dstatus from tltxwf where tltxcd =l_txmsg.tltxcd and lvel = rec.aprlvel;
+       end loop;
+    End If;
+    --Kiem tra quyen thuc hien giao dich
+    IF txpks_check.fn_txchecktransallow(l_txmsg) <> systemnums.C_SUCCESS THEN
+       p_err_code := errnums.E_TRANS_NOT_ALLOW;
+       RAISE errnums.E_BIZ_RULE_INVALID;
+    END IF;
+    IF l_txmsg.deltd <> txnums.C_DELTD_TXDELETED THEN
+       if l_txmsg.updatemode ='Z' then --Huy giao dich
+           if l_txmsg.txstatus = txstatusnums.c_txcompleted then
+               --Thong bao khong cho phep huy giao dich da hoan tat
+               p_err_code := errnums.C_SA_TRANS_APPROVED;
+               plog.setendsection (pkgctx, 'fn_txProcess');
+               RETURN errnums.C_BIZ_RULE_INVALID;
+           else
+               if l_txmsg.lvel<=1 then --Neu chuyen ve buoc Maker thi huy bo luon giao dich
+                   l_txmsg.txstatus := txstatusnums.c_txrefuse;
+                   IF fn_txAppUpdate(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                       RAISE errnums.E_BIZ_RULE_INVALID;
+                   END IF;
+                   txpks_txlog.pr_update_status(l_txmsg);
+               else
+                   l_txmsg.txstatus := txstatusnums.c_txpending;
+                   IF fn_txAppUpdate(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                       RAISE errnums.E_BIZ_RULE_INVALID;
+                   END IF;
+                   l_txmsg.ovrrqd:=errnums.C_CHECKER_CONTROL; --Ghi nhan buoc tiep theo van can duyet
+                   txpks_txlog.pr_update_status(l_txmsg);
+               end if;
+           end if;
+       end if;
+       if l_txmsg.updatemode ='R' then --Tu choi giao dich
+           if l_txmsg.txstatus = txstatusnums.c_txcompleted then
+               --Thong bao khong cho phep huy giao dich da hoan tat
+               p_err_code := errnums.C_SA_TRANS_APPROVED;
+               plog.setendsection (pkgctx, 'fn_txProcess');
+               RETURN errnums.C_BIZ_RULE_INVALID;
+           else
+               if l_txmsg.lvel<=1 then --Neu chuyen ve buoc Maker thi huy bo luon giao dich
+                   l_txmsg.txstatus := txstatusnums.c_txrejected;
+                   IF fn_txAppUpdate(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                       RAISE errnums.E_BIZ_RULE_INVALID;
+                   END IF;
+                   txpks_txlog.pr_update_status(l_txmsg);
+               else
+                   l_txmsg.txstatus := txstatusnums.c_txpending;
+                   IF fn_txAppUpdate(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                       RAISE errnums.E_BIZ_RULE_INVALID;
+                   END IF;
+                   l_txmsg.ovrrqd:=errnums.C_CHECKER_CONTROL; --Ghi nhan buoc tiep theo van can duyet
+                   txpks_txlog.pr_update_status(l_txmsg);
+               end if;
+           end if;
+       end if;
+       if  l_txmsg.updatemode ='C' or l_txmsg.updatemode ='A' then --Tao moi hoac duyet
+           IF l_txmsg.pretran = 'Y' THEN --Giao dich xac submit lan dau se check ko hach toan
+               IF fn_txAppCheck(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                   RAISE errnums.E_BIZ_RULE_INVALID;
+               END IF;
+               pr_PrintInfo(l_txmsg, p_err_code);
+           ELSE --pretran='N'
+               IF fn_txAppCheck(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                   RAISE errnums.E_BIZ_RULE_INVALID;
+               END IF;
+
+               if l_last='Y' then --Hach toan
+                   l_txmsg.txstatus := txstatusnums.c_txcompleted;
+               else
+                   l_txmsg.txstatus := txstatusnums.c_txpending;
+                   l_txmsg.ovrrqd:=errnums.C_CHECKER_CONTROL; --Ghi nhan buoc tiep theo van can duyet
+               end if;
+               IF fn_txAppUpdate(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+                   RAISE errnums.E_BIZ_RULE_INVALID;
+               END IF;
+               If l_txmsg.updatemode <> 'C'  Then
+                   txpks_txlog.pr_update_status(l_txmsg);
+               Else
+                   pr_txlog(l_txmsg, p_err_code);
+               End If;
+           END IF; --<<END OF PROCESS PRETRAN>>
+       end if;
+   ELSE -- DELETING TX
+   -- <<BEGIN OF DELETING A TRANSACTION>>
+   -- This kind of tx has not yet updated mast table in the host
+   -- Only need update tllog status
+      IF fn_txAppUpdate(l_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+          RAISE errnums.E_BIZ_RULE_INVALID;
+      END IF;
+   -- <<END OF DELETING A TRANSACTION>>
+   END IF;
+   --plog.debug(pkgctx, 'obj2xml');
+   p_xmlmsg := txpks_msg.fn_obj2xml(l_txmsg);
+   plog.setendsection (pkgctx, 'fn_txProcess');
+   pr_unlockaccount(l_txmsg);
+   RETURN l_return_code;
+EXCEPTION
+WHEN errnums.E_BIZ_RULE_INVALID
+   THEN
+      FOR I IN (
+           SELECT ERRDESC,EN_ERRDESC FROM deferror
+           WHERE ERRNUM= p_err_code
+      ) LOOP
+           p_err_param := i.errdesc;
+      END LOOP;      l_txmsg.txException('ERRSOURCE').value := '';
+      l_txmsg.txException('ERRSOURCE').TYPE := 'System.String';
+      l_txmsg.txException('ERRCODE').value := p_err_code;
+      l_txmsg.txException('ERRCODE').TYPE := 'System.Int64';
+      l_txmsg.txException('ERRMSG').value := p_err_param;
+      l_txmsg.txException('ERRMSG').TYPE := 'System.String';
+      p_xmlmsg := txpks_msg.fn_obj2xml(l_txmsg);
+      plog.setendsection (pkgctx, 'fn_txProcess');
+      pr_unlockaccount(l_txmsg);
+      RETURN errnums.C_BIZ_RULE_INVALID;
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      p_err_param := 'SYSTEM_ERROR';
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      l_txmsg.txException('ERRSOURCE').value := '';
+      l_txmsg.txException('ERRSOURCE').TYPE := 'System.String';
+      l_txmsg.txException('ERRCODE').value := p_err_code;
+      l_txmsg.txException('ERRCODE').TYPE := 'System.Int64';
+      l_txmsg.txException('ERRMSG').value :=  p_err_param;
+      l_txmsg.txException('ERRMSG').TYPE := 'System.String';
+      p_xmlmsg := txpks_msg.fn_obj2xml(l_txmsg);
+      plog.setendsection (pkgctx, 'fn_txProcess');
+      pr_unlockaccount(l_txmsg);
+      RETURN errnums.C_SYSTEM_ERROR;
+END fn_txProcess;
+
+FUNCTION fn_AutoTxProcess(p_txmsg in out tx.msg_rectype,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER
+IS
+   l_return_code VARCHAR2(30) := systemnums.C_SUCCESS;
+
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_AutoTxProcess');
+   --BEGIN GHI NHAN DE TRANH DOUBLE HACH TOAN GIAO DICH
+   pr_lockaccount(p_txmsg,p_err_code);
+   if p_err_code <> 0 then
+       pr_unlockaccount(p_txmsg);
+       plog.setendsection (pkgctx, 'fn_txProcess');
+       RETURN errnums.C_SYSTEM_ERROR;
+   end if;   -- END GHI NHAN DE TRANH DOUBLE HACH TOAN GIAO DICH
+   IF fn_txAppCheck(p_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+        RAISE errnums.E_BIZ_RULE_INVALID;
+   END IF;
+   IF fn_txAppUpdate(p_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+        RAISE errnums.E_BIZ_RULE_INVALID;
+   END IF;
+   IF p_txmsg.deltd <> 'Y' THEN -- Normal transaction
+       pr_txlog(p_txmsg, p_err_code);
+   ELSE    -- Delete transaction
+       txpks_txlog.pr_txdellog(p_txmsg,p_err_code);
+   END IF;
+   plog.setendsection (pkgctx, 'fn_AutoTxProcess');
+   pr_unlockaccount(p_txmsg);
+   RETURN l_return_code;
+EXCEPTION
+   WHEN errnums.E_BIZ_RULE_INVALID
+   THEN
+      FOR I IN (
+           SELECT ERRDESC,EN_ERRDESC FROM deferror
+           WHERE ERRNUM= p_err_code
+      ) LOOP
+           p_err_param := i.errdesc;
+      END LOOP;
+      plog.setendsection (pkgctx, 'fn_AutoTxProcess');
+      pr_unlockaccount(p_txmsg);
+      RETURN errnums.C_BIZ_RULE_INVALID;
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      p_err_param := 'SYSTEM_ERROR';
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_AutoTxProcess');
+      pr_unlockaccount(p_txmsg);
+      RETURN errnums.C_SYSTEM_ERROR;
+END fn_AutoTxProcess;
+
+FUNCTION fn_BatchTxProcess(p_txmsg in out tx.msg_rectype,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER
+IS
+   l_return_code VARCHAR2(30) := systemnums.C_SUCCESS;
+
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_BatchTxProcess');
+   IF fn_txAppCheck(p_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+        RAISE errnums.E_BIZ_RULE_INVALID;
+   END IF;
+   IF fn_txAppUpdate(p_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+        RAISE errnums.E_BIZ_RULE_INVALID;
+   END IF;
+  /* IF fn_txAutoPostmap(p_txmsg, p_err_code) <> systemnums.C_SUCCESS THEN
+        RAISE errnums.E_BIZ_RULE_INVALID;
+   END IF; */
+   IF p_txmsg.deltd <> 'Y' THEN -- Normal transaction
+       pr_txlog(p_txmsg, p_err_code);
+   ELSE    -- Delete transaction
+       txpks_txlog.pr_txdellog(p_txmsg,p_err_code);
+   END IF;
+
+   plog.setendsection (pkgctx, 'fn_BatchTxProcess');
+   RETURN l_return_code;
+EXCEPTION
+   WHEN errnums.E_BIZ_RULE_INVALID
+   THEN
+      FOR I IN (
+           SELECT ERRDESC,EN_ERRDESC FROM deferror
+           WHERE ERRNUM= p_err_code
+      ) LOOP
+           p_err_param := i.errdesc;
+      END LOOP;
+      plog.setendsection (pkgctx, 'fn_BatchTxProcess');
+      RETURN errnums.C_BIZ_RULE_INVALID;
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      p_err_param := 'SYSTEM_ERROR';
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_BatchTxProcess');
+      RETURN errnums.C_SYSTEM_ERROR;
+END fn_BatchTxProcess;
+
+FUNCTION fn_txrevert(p_txnum varchar2 ,p_txdate varchar2,p_err_code in out varchar2,p_err_param out varchar2)
+RETURN NUMBER
+IS
+   l_txmsg               tx.msg_rectype;
+   l_err_param           varchar2(300);
+   l_tllog               tx.tllog_rectype;
+   l_fldname             varchar2(100);
+   l_defname             varchar2(100);
+   l_fldtype             char(1);
+   l_return              number(20,0);
+   pv_refcursor            pkg_report.ref_cursor;
+   l_return_code VARCHAR2(30) := systemnums.C_SUCCESS;
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_txrevert');
+   OPEN pv_refcursor FOR
+   select * from tllog
+   where txnum=p_txnum and txdate=to_date(p_txdate,systemnums.c_date_format);
+   LOOP
+       FETCH pv_refcursor
+       INTO l_tllog;
+       EXIT WHEN pv_refcursor%NOTFOUND;
+       if l_tllog.deltd='Y' then
+           p_err_code:=errnums.C_SA_CANNOT_DELETETRANSACTION;
+           plog.setendsection (pkgctx, 'fn_txrevert');
+           RETURN errnums.C_SYSTEM_ERROR;
+       end if;
+       l_txmsg.msgtype:='T';
+       l_txmsg.local:='N';
+       l_txmsg.tlid        := l_tllog.tlid;
+       l_txmsg.off_line    := l_tllog.off_line;
+       l_txmsg.deltd       := txnums.C_DELTD_TXDELETED;
+       l_txmsg.txstatus    := txstatusnums.c_txcompleted;
+       l_txmsg.msgsts      := '0';
+       l_txmsg.ovrsts      := '0';
+       l_txmsg.batchname   := 'DEL';
+       l_txmsg.txdate:=to_date(l_tllog.txdate,systemnums.c_date_format);
+       l_txmsg.busdate:=to_date(l_tllog.busdate,systemnums.c_date_format);
+       l_txmsg.txnum:=l_tllog.txnum;
+       l_txmsg.tltxcd:=l_tllog.tltxcd;
+       l_txmsg.brid:=l_tllog.brid;
+       for rec in
+       (
+           select * from tllogfld
+           where txnum=p_txnum and txdate=to_date(p_txdate,systemnums.c_date_format)
+       )
+       loop
+       begin
+           select fldname, defname, fldtype
+           into l_fldname, l_defname, l_fldtype
+           from fldmaster
+           where objname=l_tllog.tltxcd and FLDNAME=rec.FLDCD;
+
+           l_txmsg.txfields (l_fldname).defname   := l_defname;
+           l_txmsg.txfields (l_fldname).TYPE      := l_fldtype;
+
+           if l_fldtype='C' then
+               l_txmsg.txfields (l_fldname).VALUE     := rec.CVALUE;
+           elsif   l_fldtype='N' then
+               l_txmsg.txfields (l_fldname).VALUE     := rec.NVALUE;
+           else
+               l_txmsg.txfields (l_fldname).VALUE     := rec.CVALUE;
+           end if;
+           --plog.debug (pkgctx,'field: ' || l_fldname || ' value:' || to_char(l_txmsg.txfields (l_fldname).VALUE));
+       exception when others then
+           l_err_param:=0;
+       end;
+       end loop;
+       IF txpks_#2085.fn_AutoTxProcess (l_txmsg,
+                                        p_err_code,
+                                        p_err_param
+          ) <> systemnums.c_success
+       THEN
+           plog.debug (pkgctx,
+           'got error 2085: ' || p_err_code
+           );
+           ROLLBACK;
+           plog.setendsection (pkgctx, 'fn_txrevert');
+           RETURN errnums.C_SYSTEM_ERROR;
+       END IF;
+       p_err_code:=0;
+       plog.setendsection (pkgctx, 'fn_txrevert');
+       return 0;
+       plog.setendsection (pkgctx, 'fn_txrevert');
+       p_err_code:=errnums.C_HOST_VOUCHER_NOT_FOUND;
+       RETURN errnums.C_SYSTEM_ERROR;
+   END LOOP;
+   p_err_code:=errnums.C_HOST_VOUCHER_NOT_FOUND;
+   plog.setendsection (pkgctx, 'fn_txrevert');
+   RETURN errnums.C_SYSTEM_ERROR;
+   plog.setendsection (pkgctx, 'fn_txrevert');
+   RETURN l_return_code;
+EXCEPTION
+   WHEN errnums.E_BIZ_RULE_INVALID
+   THEN
+      FOR I IN (
+           SELECT ERRDESC,EN_ERRDESC FROM deferror
+           WHERE ERRNUM= p_err_code
+      ) LOOP
+           p_err_param := i.errdesc;
+      END LOOP;
+      plog.setendsection (pkgctx, 'fn_txrevert');
+      RETURN errnums.C_BIZ_RULE_INVALID;
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      p_err_param := 'SYSTEM_ERROR';
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_txrevert');
+      RETURN errnums.C_SYSTEM_ERROR;
+END fn_txrevert;
+
+BEGIN
+      FOR i IN (SELECT *
+                FROM tlogdebug)
+      LOOP
+         logrow.loglevel    := i.loglevel;
+         logrow.log4table   := i.log4table;
+         logrow.log4alert   := i.log4alert;
+         logrow.log4trace   := i.log4trace;
+      END LOOP;
+      pkgctx    :=
+         plog.init ('txpks_#2085',
+                    plevel => NVL(logrow.loglevel,30),
+                    plogtable => (NVL(logrow.log4table,'N') = 'Y'),
+                    palert => (NVL(logrow.log4alert,'N') = 'Y'),
+                    ptrace => (NVL(logrow.log4trace,'N') = 'Y')
+            );
+END txpks_#2085;
+/
+
+
+-- End of DDL Script for Package SHBCBD.TXPKS_#2085
+
+-- Start of DDL Script for Package SHBCBD.TXPKS_#2085EX
+-- Generated 21-Dec-21 12:23:42 PM from SHBCBD@(DESCRIPTION =(ADDRESS_LIST =(ADDRESS = (PROTOCOL = TCP)(HOST = 192.168.1.188)(PORT = 1521)))(CONNECT_DATA =(SERVICE_NAME = db)))
+
+CREATE OR REPLACE 
+PACKAGE txpks_#2085ex
+/**----------------------------------------------------------------------------------------------------
+ ** Package: TXPKS_#2085EX
+ ** and is copyrighted by FSS.
+ **
+ **    All rights reserved.  No part of this work may be reproduced, stored in a retrieval system,
+ **    adopted or transmitted in any form or by any means, electronic, mechanical, photographic,
+ **    graphic, optic recording or otherwise, translated in any language or computer language,
+ **    without the prior written permission of Financial Software Solutions. JSC.
+ **
+ **  MODIFICATION HISTORY
+ **  Person      Date           Comments
+ **  System      14/12/2021     Created
+ **  
+ ** (c) 2008 by Financial Software Solutions. JSC.
+ ** ----------------------------------------------------------------------------------------------------*/
+IS
+FUNCTION fn_txPreAppCheck(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER;
+FUNCTION fn_txAftAppCheck(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER;
+FUNCTION fn_txPreAppUpdate(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER;
+FUNCTION fn_txAftAppUpdate(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER;
+END;
+/
+
+
+CREATE OR REPLACE 
+PACKAGE BODY txpks_#2085ex
+IS
+   pkgctx   plog.log_ctx;
+   logrow   tlogdebug%ROWTYPE;
+
+   c_symbol           CONSTANT CHAR(2) := '01';
+   c_secif            CONSTANT CHAR(2) := '02';
+   c_idcode           CONSTANT CHAR(2) := '03';
+   c_idtype           CONSTANT CHAR(2) := '04';
+   c_trntype          CONSTANT CHAR(2) := '05';
+   c_qtty             CONSTANT CHAR(2) := '06';
+FUNCTION fn_txPreAppCheck(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER
+IS
+l_symbol varchar2(100);
+l_secif varchar2(100);
+l_idcode varchar2(100);
+l_idtype varchar2(10);
+l_trntype varchar2(1);
+l_qtty number;
+l_count number;
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_txPreAppCheck');
+   --plog.debug(pkgctx,'BEGIN OF fn_txPreAppCheck');
+   /***************************************************************************************************
+    * PUT YOUR SPECIFIC RULE HERE, FOR EXAMPLE:
+    * IF NOT <<YOUR BIZ CONDITION>> THEN
+    *    p_err_code := '<<ERRNUM>>'; -- Pre-defined in DEFERROR table
+    *    plog.setendsection (pkgctx, 'fn_txPreAppCheck');
+    *    RETURN errnums.C_BIZ_RULE_INVALID;
+    * END IF;
+    ***************************************************************************************************/
+    l_symbol:= p_txmsg.txfields(c_symbol).value;
+    l_secif:= p_txmsg.txfields(c_secif).value;
+    l_idcode:= p_txmsg.txfields(c_idcode).value;
+    l_idtype:= p_txmsg.txfields(c_idtype).value;
+    l_trntype:= p_txmsg.txfields(c_trntype).value;
+
+        if l_symbol is null then
+            p_err_code:='-4001393';
+            return p_err_code;
+        end if;
+        if l_secif is null then
+            p_err_code:='-4000455';
+            return p_err_code;
+        end if;
+
+         if l_idcode is null then
+            p_err_code:='-4000453';
+            return p_err_code;
+        end if;
+         if l_idtype is null then
+            p_err_code:='-4000454';
+            return p_err_code;
+        end if;
+        if l_idtype not in ('001','002') then
+            p_err_code:='-4000465';
+            return p_err_code;
+        end if;
+
+        if l_trntype is null then
+            p_err_code:='-4001394';
+            return p_err_code;
+        end if;
+
+        if l_trntype not in ('C','D') then
+            p_err_code:='-4001395';
+            return p_err_code;
+        end if;
+        if p_txmsg.txfields(c_qtty).value is null then
+            p_err_code:='-4001397';
+            return p_err_code;
+        end if;
+        if fn_is_integer(p_txmsg.txfields(c_qtty).value) = -1 then
+            p_err_code:='-4001396';
+            return p_err_code;
+        end if;
+
+
+        select count(*) into l_count from assetdtl a where a.symbol = l_symbol and (a.status ='A' or a.pstatus like '%A%');
+        if l_count = 0 then
+             p_err_code:='-4001398';
+            return p_err_code;
+        end if;
+
+        select count(*) into l_count from cfmast c where c.secif = l_secif and c.cfstatus <> 'C';
+        if l_count = 0 then
+             p_err_code:='-4001379';
+            return p_err_code;
+        end if;
+        select count(*) into l_count from cfmast c where c.secif = l_secif and c.idcodeck = l_idcode and  c.cfstatus <> 'C';
+        if l_count = 0 then
+             p_err_code:='-4001400';
+            return p_err_code;
+        end if;
+          select count(*) into l_count from cfmast c where c.secif = l_secif and c.idcodeck = l_idcode and c.idtypeck = l_idtype and  c.cfstatus <> 'C';
+        if l_count = 0 then
+             p_err_code:='-4001401';
+            return p_err_code;
+        end if;
+
+        select count(*) into l_count from semast s where s.symbol = l_symbol and s.afacctno = (select c.custid from cfmast c where c.secif = l_secif and c.cfstatus <> 'C');
+        if l_count = 0 then
+             p_err_code:='-4001399';
+            return p_err_code;
+        end if;
+
+
+
+    --plog.debug (pkgctx, '<<END OF fn_txPreAppCheck');
+    plog.setendsection (pkgctx, 'fn_txPreAppCheck');
+    RETURN systemnums.C_SUCCESS;
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_txPreAppCheck');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txPreAppCheck;
+
+FUNCTION fn_txAftAppCheck(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER
+IS
+BEGIN
+   plog.setbeginsection (pkgctx, 'fn_txAftAppCheck');
+   --plog.debug (pkgctx, '<<BEGIN OF fn_txAftAppCheck>>');
+   /***************************************************************************************************
+    * PUT YOUR SPECIFIC RULE HERE, FOR EXAMPLE:
+    * IF NOT <<YOUR BIZ CONDITION>> THEN
+    *    p_err_code := '<<ERRNUM>>'; -- Pre-defined in DEFERROR table
+    *    plog.setendsection (pkgctx, 'fn_txAftAppCheck');
+    *    RETURN errnums.C_BIZ_RULE_INVALID;
+    * END IF;
+    ***************************************************************************************************/
+   --plog.debug (pkgctx, '<<END OF fn_txAftAppCheck>>');
+   plog.setendsection (pkgctx, 'fn_txAftAppCheck');
+   RETURN systemnums.C_SUCCESS;
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+      plog.setendsection (pkgctx, 'fn_txAftAppCheck');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txAftAppCheck;
+
+FUNCTION fn_txPreAppUpdate(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER
+IS
+l_symbol varchar2(100);
+l_secif varchar2(100);
+l_idcode varchar2(100);
+l_idtype varchar2(10);
+l_trntype varchar2(1);
+l_qtty number;
+l_count number;
+l_afacctno varchar2(100);
+l_desc varchar2(500);
+l_acctno varchar2(100);
+l_trade number;
+BEGIN
+    plog.setbeginsection (pkgctx, 'fn_txPreAppUpdate');
+    --plog.debug (pkgctx, '<<BEGIN OF fn_txPreAppUpdate');
+   /***************************************************************************************************
+    ** PUT YOUR SPECIFIC PROCESS HERE. . DO NOT COMMIT/ROLLBACK HERE, THE SYSTEM WILL DO IT
+    ***************************************************************************************************/
+    l_symbol:= p_txmsg.txfields(c_symbol).value;
+    l_secif:= p_txmsg.txfields(c_secif).value;
+    l_idcode:= p_txmsg.txfields(c_idcode).value;
+    l_idtype:= p_txmsg.txfields(c_idtype).value;
+    l_trntype:= p_txmsg.txfields(c_trntype).value;
+    l_qtty:= TO_NUMBER(p_txmsg.txfields(c_qtty).value);
+
+    select c.custid into l_afacctno from cfmast c where c.secif = l_secif and c.cfstatus <> 'C';
+    l_acctno:= l_afacctno||LPAD(fn_get_codeid_symbol(l_symbol),6,'0');
+    l_desc:= 'Cap nhat so du TP '||l_symbol || ' cua NDT '||fn_get_custodycd_by_acctno(l_afacctno);
+
+    if l_trntype ='D' then
+    select s.trade into l_trade from semast s where s.symbol = l_symbol
+                        and s.afacctno = l_afacctno;
+    update semast s set s.trade = s.trade - LEAST(l_qtty, s.trade)
+                        where s.symbol = l_symbol
+                        and s.afacctno = l_afacctno;
+     INSERT INTO SETRAN
+                        (TXNUM, TXDATE, ACCTNO, TXCD, NAMT, CAMT, "REF", DELTD, AUTOID, ACCTREF, TLTXCD, BKDATE, TRDESC, LVEL, VERMATCHING, SESSIONNO, NAV, FEEAMT, TAXAMT)
+                        VALUES(p_txmsg.txnum, p_txmsg.txdate,l_acctno, '0001', LEAST(l_trade,l_qtty), NULL, '1', 'N', seq_setran.NEXTVAL, NULL, '2085', p_txmsg.txdate, l_desc, 2, NULL, NULL, 0, 0, 0);
+
+
+    end if;
+
+    if l_trntype ='C' then
+    update semast s set s.trade = s.trade + l_qtty
+                        where s.symbol = l_symbol
+                        and s.afacctno = l_afacctno;
+     INSERT INTO SETRAN
+                        (TXNUM, TXDATE, ACCTNO, TXCD, NAMT, CAMT, "REF", DELTD, AUTOID, ACCTREF, TLTXCD, BKDATE, TRDESC, LVEL, VERMATCHING, SESSIONNO, NAV, FEEAMT, TAXAMT)
+                        VALUES(p_txmsg.txnum, p_txmsg.txdate,l_acctno, '0002', l_qtty, NULL, '1', 'N', seq_setran.NEXTVAL, NULL, '2085', p_txmsg.txdate, l_desc, 2, NULL, NULL, 0, 0, 0);
+
+
+    end if;
+
+
+    --plog.debug (pkgctx, '<<END OF fn_txPreAppUpdate');
+    plog.setendsection (pkgctx, 'fn_txPreAppUpdate');
+    RETURN systemnums.C_SUCCESS;
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+       plog.setendsection (pkgctx, 'fn_txPreAppUpdate');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txPreAppUpdate;
+
+FUNCTION fn_txAftAppUpdate(p_txmsg in tx.msg_rectype,p_err_code out varchar2)
+RETURN NUMBER
+IS
+BEGIN
+    plog.setbeginsection (pkgctx, 'fn_txAftAppUpdate');
+    --plog.debug (pkgctx, '<<BEGIN OF fn_txAftAppUpdate');
+   /***************************************************************************************************
+    ** PUT YOUR SPECIFIC AFTER PROCESS HERE. DO NOT COMMIT/ROLLBACK HERE, THE SYSTEM WILL DO IT
+    ***************************************************************************************************/
+    --plog.debug (pkgctx, '<<END OF fn_txAftAppUpdate');
+    plog.setendsection (pkgctx, 'fn_txAftAppUpdate');
+    RETURN systemnums.C_SUCCESS;
+EXCEPTION
+WHEN OTHERS
+   THEN
+      p_err_code := errnums.C_SYSTEM_ERROR;
+      plog.error (pkgctx, SQLERRM || dbms_utility.format_error_backtrace);
+       plog.setendsection (pkgctx, 'fn_txAftAppUpdate');
+      RAISE errnums.E_SYSTEM_ERROR;
+END fn_txAftAppUpdate;
+
+BEGIN
+      FOR i IN (SELECT *
+                FROM tlogdebug)
+      LOOP
+         logrow.loglevel    := i.loglevel;
+         logrow.log4table   := i.log4table;
+         logrow.log4alert   := i.log4alert;
+         logrow.log4trace   := i.log4trace;
+      END LOOP;
+      pkgctx    :=
+         plog.init ('TXPKS_#2085EX',
+                    plevel => NVL(logrow.loglevel,30),
+                    plogtable => (NVL(logrow.log4table,'N') = 'Y'),
+                    palert => (NVL(logrow.log4alert,'N') = 'Y'),
+                    ptrace => (NVL(logrow.log4trace,'N') = 'Y')
+            );
+END TXPKS_#2085EX;
+/
+
+
+-- End of DDL Script for Package SHBCBD.TXPKS_#2085EX
